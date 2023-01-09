@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 import dataclasses
+import logging
 from typing import Dict, List, Type, Optional, Union, NamedTuple
+
+
+logger = logging.getLogger(__name__)
 
 
 class PendingValue:
@@ -111,9 +115,8 @@ class TodoistTask(Item):
     id: Union[int, PendingValue]
     content: str
     description: str
-    project_id: str
+    project_id: int
     parent_id: Optional[str]
-    # priority: int
     labels: List[str]
 
     parent: Optional[TodoistTask] = None
@@ -143,7 +146,6 @@ class TodoistTask(Item):
 
 class TaskComparisonResult(NamedTuple):
     to_add: TodoistTaskCollection
-    to_update: TodoistTaskCollection
     to_complete: TodoistTaskCollection
 
 
@@ -157,7 +159,7 @@ class TodoistTaskCollection(Collection):
         return cls(members={item["content"]: cls.type.from_response(item) for item in response})
 
     @classmethod
-    def from_wrike_tasks(cls, wrike_tasks: WrikeTaskCollection, todoist_project_id: str) -> TodoistTaskCollection:
+    def from_wrike_tasks(cls, wrike_tasks: WrikeTaskCollection, todoist_project_id: int) -> TodoistTaskCollection:
         tasks = {}
         for wrike_task in wrike_tasks:
             primary_key = PendingValue()
@@ -177,20 +179,16 @@ class TodoistTaskCollection(Collection):
     @classmethod
     def compare(cls, wrike_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection) -> TaskComparisonResult:
         to_add = TodoistTaskCollection()
-        to_update = TodoistTaskCollection()
         to_complete = TodoistTaskCollection()
 
-        print(todoist_tasks)
-
         for wrike_task in wrike_tasks:
-
-            print(wrike_task)
-
-            if wrike_task in todoist_tasks:
-                to_update.members[wrike_task.primary_key] = wrike_task
-            else:
+            if wrike_task not in todoist_tasks:
                 to_add.members[wrike_task.primary_key] = wrike_task
-        return TaskComparisonResult(to_add=to_add, to_update=to_update, to_complete=to_complete)
+                logger.info(f"Need to add task {wrike_task.primary_key}.")
+            else:
+                logger.info(f"Task {wrike_task.primary_key} already in Todoist.")
+
+        return TaskComparisonResult(to_add=to_add, to_complete=to_complete)
 
 
 @dataclasses.dataclass
