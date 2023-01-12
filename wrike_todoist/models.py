@@ -62,6 +62,7 @@ class WrikeTask(Item):
     id: str
     title: str
     permalink: str
+    sub_task_ids: List[str]
 
     @property
     def primary_key(self) -> str:
@@ -73,7 +74,12 @@ class WrikeTask(Item):
 
     @classmethod
     def from_response(cls, response: Dict) -> WrikeTask:
-        return cls(id=response["id"], title=response["title"], permalink=response["permalink"])
+        return cls(
+            id=response["id"],
+            title=response["title"],
+            permalink=response["permalink"],
+            sub_task_ids=response["subTaskIds"],
+        )
 
 
 @dataclasses.dataclass
@@ -116,11 +122,7 @@ class TodoistTask(Item):
     content: str
     description: str
     project_id: int
-    parent_id: Optional[str]
     labels: List[str]
-
-    parent: Optional[TodoistTask] = None
-    children: List[TodoistTask] = dataclasses.field(default_factory=list)
 
     @property
     def primary_key(self) -> str:
@@ -133,8 +135,6 @@ class TodoistTask(Item):
             content=response["content"],
             description=response["description"],
             project_id=response["project_id"],
-            parent_id=response["parent_id"],
-            # priority=response["priority"],
             labels=response["labels"],
         )
 
@@ -162,6 +162,10 @@ class TodoistTaskCollection(Collection):
     def from_wrike_tasks(cls, wrike_tasks: WrikeTaskCollection, todoist_project_id: int) -> TodoistTaskCollection:
         tasks = {}
         for wrike_task in wrike_tasks:
+            if wrike_task.sub_task_ids:
+                logger.info(f"Skipping Wrike Task {wrike_task.primary_key} as has sub-tasks.")
+                continue
+
             primary_key = PendingValue()
             content = f"[#{wrike_task.numeric_id}] {wrike_task.title}"
             todoist_task = TodoistTask(
@@ -169,7 +173,6 @@ class TodoistTaskCollection(Collection):
                 description=wrike_task.permalink,
                 content=content,
                 project_id=todoist_project_id,
-                parent_id=None,
                 # priority=0,
                 labels=["Wrike"],
             )
