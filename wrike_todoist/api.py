@@ -1,3 +1,4 @@
+import http
 import logging
 from pprint import pformat
 
@@ -96,3 +97,18 @@ def todoist_create_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.
         created[created_todoist_task.primary_key] = created_todoist_task
 
     return models.TodoistTaskCollection(members=created)
+
+
+def todoist_close_tasks(todist_tasks: models.TodoistTaskCollection):
+    closed = {}
+
+    for todoist_task in todist_tasks:
+        close_task_response = requests.post(
+            f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}/close",
+            headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
+        )
+        if close_task_response.status_code == http.HTTPStatus.NO_CONTENT:
+            closed[todoist_task.primary_key] = todoist_task
+            logger.info(f"Closed task {todoist_task.primary_key}.")
+
+    return models.TodoistTaskCollection(members=closed)

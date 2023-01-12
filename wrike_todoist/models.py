@@ -170,7 +170,7 @@ class TodoistTask(Item):
 
 class TaskComparisonResult(NamedTuple):
     to_add: TodoistTaskCollection
-    to_complete: TodoistTaskCollection
+    to_close: TodoistTaskCollection
 
 
 @dataclasses.dataclass
@@ -206,16 +206,23 @@ class TodoistTaskCollection(Collection):
     @classmethod
     def compare(cls, wrike_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection) -> TaskComparisonResult:
         to_add = TodoistTaskCollection()
-        to_complete = TodoistTaskCollection()
+        to_skip = TodoistTaskCollection()
+        to_close = TodoistTaskCollection()
 
         for wrike_task in wrike_tasks:
             if wrike_task not in todoist_tasks:
                 to_add.members[wrike_task.primary_key] = wrike_task
                 logger.info(f"Need to add task {wrike_task.primary_key}.")
             else:
+                to_skip.members[wrike_task.primary_key] = wrike_task
                 logger.info(f"Task {wrike_task.primary_key} already in Todoist.")
 
-        return TaskComparisonResult(to_add=to_add, to_complete=to_complete)
+        for todoist_task in todoist_tasks:
+            if todoist_task not in to_skip:
+                to_close.members[todoist_task.primary_key] = todoist_task
+                logger.info(f"Need to complete task {todoist_task.primary_key}.")
+
+        return TaskComparisonResult(to_add=to_add, to_close=to_close)
 
 
 @dataclasses.dataclass
