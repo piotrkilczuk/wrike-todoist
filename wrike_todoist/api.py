@@ -1,4 +1,5 @@
 import logging
+from pprint import pformat
 
 import requests
 
@@ -15,14 +16,23 @@ def wrike_get_current_user() -> models.WrikeUser:
     return models.WrikeUser.from_response(wrike_user_response.json())
 
 
-def wrike_get_tasks(wrike_user: models.WrikeUser) -> models.WrikeTaskCollection:
+def wrike_get_folders() -> models.WrikeFolderCollection:
+    wrike_folders_response = requests.get(
+        "https://www.wrike.com/api/v4/folders",
+        params={"access_token": config.config.wrike_access_token},
+    )
+    return models.WrikeFolderCollection.from_response(wrike_folders_response.json())
+
+
+def wrike_get_tasks(wrike_user: models.WrikeUser, wrike_folder: models.WrikeFolder) -> models.WrikeTaskCollection:
     wrike_tasks_response = requests.get(
-        "https://www.wrike.com/api/v4/tasks",
+        f"https://www.wrike.com/api/v4/folders/{wrike_folder.id}/tasks",
         params={
             "access_token": config.config.wrike_access_token,
             "status": "Active",
             "responsibles": f"[{wrike_user.id}]",
             "subTasks": True,
+            "descendants": True,
             "fields": "[description,briefDescription,superTaskIds,subTaskIds]",
             "limit": 500,
         },

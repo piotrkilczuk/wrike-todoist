@@ -58,6 +58,30 @@ class WrikeUser(Item):
 
 
 @dataclasses.dataclass
+class WrikeFolder(Item):
+    id: str
+    title: str
+
+    @property
+    def primary_key(self):
+        return self.title
+
+    @classmethod
+    def from_response(cls, response: Dict):
+        return cls(id=response["id"], title=response["title"])
+
+
+@dataclasses.dataclass
+class WrikeFolderCollection(Collection):
+    members: Dict[Union[str], WrikeFolder]
+    type = WrikeFolder
+
+    @classmethod
+    def from_response(cls, response: Dict) -> WrikeFolderCollection:
+        return cls(members={item["title"]: cls.type.from_response(item) for item in response["data"]})
+
+
+@dataclasses.dataclass
 class WrikeTask(Item):
     id: str
     title: str
