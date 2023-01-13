@@ -21,7 +21,5 @@ def main():
 
     comparison_result = models.TodoistTaskCollection.compare(expected_todoist_tasks, actual_todoist_tasks)
 
-    created_todoist_tasks = api.todoist_create_tasks(comparison_result.to_add)
-    completed_tasks = api.todoist_close_tasks(comparison_result.to_close)
-
-    raise NotImplementedError(...)
+    api.todoist_create_tasks(comparison_result.to_add)
+    api.todoist_close_tasks(comparison_result.to_close)

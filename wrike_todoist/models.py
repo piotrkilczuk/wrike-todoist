@@ -215,7 +215,7 @@ class TodoistTaskCollection(Collection):
                 logger.info(f"Need to add task {wrike_task.primary_key}.")
             else:
                 to_skip.members[wrike_task.primary_key] = wrike_task
-                logger.info(f"Task {wrike_task.primary_key} already in Todoist.")
+                logger.info(f"Skipping Wrike Task {wrike_task.primary_key} as already in Todoist.")
 
         for todoist_task in todoist_tasks:
             if todoist_task not in to_skip:
