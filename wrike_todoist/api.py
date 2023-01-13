@@ -57,7 +57,7 @@ def todoist_get_project_by_name(name: str) -> models.TodoistProject:
     )
     todoist_projects = models.TodoistProjectCollection.from_response(todoist_projects_response.json())
     logger.info(f"Retrieved {len(todoist_projects)} Todoist Projects.")
-    todoist_project = todoist_projects[name]
+    todoist_project = todoist_projects.get(name=name)
     logger.info(f"{name} is a valid Todoist Project.")
     return todoist_project
 
@@ -114,7 +114,7 @@ def todoist_create_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.
         logger.info(f"Created new Todoist Task {todoist_task.content}")
         created[created_todoist_task.primary_key] = created_todoist_task
 
-    return models.TodoistTaskCollection(members=created)
+    return models.TodoistTaskCollection(*created)
 
 
 def todoist_close_tasks(todist_tasks: models.TodoistTaskCollection):
@@ -129,4 +129,4 @@ def todoist_close_tasks(todist_tasks: models.TodoistTaskCollection):
             closed[todoist_task.primary_key] = todoist_task
             logger.info(f"Closed Todoist Task {todoist_task.primary_key}.")
 
-    return models.TodoistTaskCollection(members=closed)
+    return models.TodoistTaskCollection(*closed)

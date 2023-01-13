@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import logging
-from typing import Dict, List, Type, Optional, Union, NamedTuple
+from typing import Dict, List, Type, Optional, Union, NamedTuple, TypeVar, Any, Callable
 
 from wrike_todoist import config
 
@@ -29,21 +29,70 @@ class Item:
         return data
 
 
+CollectionType = TypeVar("CollectionType", bound=Item)
+
+
 class Collection:
-    members: Dict
-    type: Type
+    primary_key_field_name: str
+    type: Type[CollectionType]
 
-    def __len__(self):
-        return len(self.members)
+    _members: List[CollectionType]
 
-    def __contains__(self, item):
-        return item.primary_key in self.members
-
-    def __getitem__(self, item):
-        return self.members[item]
+    def __init__(self, *members: CollectionType):
+        for member in members:
+            if not isinstance(member, self.type):
+                raise ValueError(f"Invalid member {member}. Required type is {self.type}.")
+        self._members = list(members)
 
     def __iter__(self):
-        return iter(self.members.values())
+        return iter(self._members)
+
+    def __len__(self):
+        return len(self._members)
+
+    def __contains__(self, item):
+        try:
+            self.get(**{self.primary_key_field_name: getattr(item, self.primary_key_field_name)})
+            return True
+        except ValueError:
+            return False
+
+    def __getitem__(self, index):
+        return self._members[index]
+
+    def __add__(self, other: CollectionType):
+        if isinstance(other, Collection):
+            self._members += other._members
+        else:
+            self._members.append(other)
+        return self
+
+    def filter(self, fn: Optional[Callable[[Item], bool]] = None, **fields: Any) -> Collection:
+        if fn and fields:
+            raise ValueError("Use either fn or **fields.")
+
+        collection_type = type(self)
+        members = []
+
+        for item in self:
+            if fn and fn(item):
+                members.append(item)
+
+            for field_name, field_value in fields.items():
+                if getattr(item, field_name) != field_value:
+                    break
+            else:
+                members.append(item)
+
+        return collection_type(*members)
+
+    def get(self, fn: Optional[Callable[[Item], bool]] = None, **fields: Any) -> CollectionType:
+        filtered = self.filter(fn, **fields)
+        if not filtered:
+            raise ValueError(f"No objects found - {fn=} {fields=}.")
+        if len(filtered) > 1:
+            raise ValueError(f"Multiple objects found - {fn=} {fields=}.")
+        return filtered[0]
 
 
 @dataclasses.dataclass
@@ -73,14 +122,12 @@ class WrikeFolder(Item):
         return cls(id=response["id"], title=response["title"])
 
 
-@dataclasses.dataclass
 class WrikeFolderCollection(Collection):
-    members: Dict[Union[str], WrikeFolder]
     type = WrikeFolder
 
     @classmethod
     def from_response(cls, response: Dict) -> WrikeFolderCollection:
-        return cls(members={item["title"]: cls.type.from_response(item) for item in response["data"]})
+        return cls(*[cls.type.from_response(item) for item in response["data"]])
 
 
 @dataclasses.dataclass
@@ -108,14 +155,12 @@ class WrikeTask(Item):
         )
 
 
-@dataclasses.dataclass
 class WrikeTaskCollection(Collection):
-    members: Dict[Union[str, PendingValue], WrikeTask]
     type = WrikeTask
 
     @classmethod
     def from_response(cls, response: Dict) -> WrikeTaskCollection:
-        return cls(members={item["id"]: cls.type.from_response(item) for item in response["data"]})
+        return cls(*[cls.type.from_response(item) for item in response["data"]])
 
 
 @dataclasses.dataclass
@@ -132,14 +177,12 @@ class TodoistProject(Item):
         return cls(id=response["id"], name=response["name"])
 
 
-@dataclasses.dataclass
 class TodoistProjectCollection(Collection):
-    members: Dict[Union[int, PendingValue], TodoistTask]
     type = TodoistProject
 
     @classmethod
-    def from_response(cls, response: List[Dict]) -> Collection:
-        return cls(members={item["name"]: cls.type.from_response(item) for item in response})
+    def from_response(cls, response: List[Dict]) -> TodoistProjectCollection:
+        return cls(*[cls.type.from_response(item) for item in response])
 
 
 class TodoistTaskPriorityMapping(enum.IntEnum):
@@ -183,35 +226,35 @@ class TaskComparisonResult(NamedTuple):
     to_close: TodoistTaskCollection
 
 
-@dataclasses.dataclass
 class TodoistTaskCollection(Collection):
-    members: Dict[Union[str, PendingValue], TodoistTask] = dataclasses.field(default_factory=dict)
+    primary_key_field_name = "content"
     type = TodoistTask
 
     @classmethod
     def from_response(cls, response: List[Dict]) -> TodoistTaskCollection:
-        return cls(members={item["content"]: cls.type.from_response(item) for item in response})
+        return cls(*[cls.type.from_response(item) for item in response])
 
     @classmethod
     def from_wrike_tasks(cls, wrike_tasks: WrikeTaskCollection, todoist_project_id: int) -> TodoistTaskCollection:
-        tasks = {}
+        tasks = []
+
         for wrike_task in wrike_tasks:
             if wrike_task.sub_task_ids:
                 logger.info(f"Skipping Wrike Task {wrike_task.primary_key} as has sub-tasks.")
                 continue
 
-            primary_key = PendingValue()
             content = f"[#{wrike_task.numeric_id}] {wrike_task.title}"
             todoist_task = TodoistTask(
                 id=PendingValue(),
                 description=wrike_task.permalink,
                 content=content,
                 project_id=todoist_project_id,
-                # priority=0,
+                priority=config.config.todoist_default_priority,
                 labels=["Wrike"],
             )
-            tasks[primary_key] = todoist_task
-        return cls(members=tasks)
+            tasks.append(todoist_task)
+
+        return cls(*tasks)
 
     @classmethod
     def compare(cls, wrike_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection) -> TaskComparisonResult:
@@ -221,15 +264,15 @@ class TodoistTaskCollection(Collection):
 
         for wrike_task in wrike_tasks:
             if wrike_task not in todoist_tasks:
-                to_add.members[wrike_task.primary_key] = wrike_task
+                to_add += wrike_task
                 logger.info(f"Need to add task {wrike_task.primary_key}.")
             else:
-                to_skip.members[wrike_task.primary_key] = wrike_task
+                to_skip += wrike_task
                 logger.info(f"Skipping Wrike Task {wrike_task.primary_key} as already in Todoist.")
 
         for todoist_task in todoist_tasks:
             if todoist_task not in to_skip:
-                to_close.members[todoist_task.primary_key] = todoist_task
+                to_close += todoist_task
                 logger.info(f"Need to complete task {todoist_task.primary_key}.")
 
         return TaskComparisonResult(to_add=to_add, to_close=to_close)
@@ -251,9 +294,8 @@ class TodoistLabel(Item):
 
 @dataclasses.dataclass
 class TodoistLabelCollection(Collection):
-    members: Dict[Union[str, PendingValue], TodoistLabel]
     type = TodoistLabel
 
     @classmethod
-    def from_response(cls, response: List[Dict]) -> Collection:
-        return cls(members={item["name"]: cls.type.from_response(item) for item in response})
+    def from_response(cls, response: List[Dict]) -> TodoistLabelCollection:
+        return cls(*[cls.type.from_response(item) for item in response])

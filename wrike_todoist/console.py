@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 def main():
     wrike_user = api.wrike_get_current_user()
     wrike_folders = api.wrike_get_folders()
-    wrike_folder = wrike_folders[config.config.wrike_folder]
+    wrike_folder = wrike_folders.get(title=config.config.wrike_folder)
 
     wrike_tasks = api.wrike_get_tasks(wrike_user, wrike_folder)
 
