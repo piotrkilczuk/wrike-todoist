@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import dataclasses
+import enum
 import logging
 from typing import Dict, List, Type, Optional, Union, NamedTuple
 
+from wrike_todoist import config
 
 logger = logging.getLogger(__name__)
 
@@ -140,6 +142,13 @@ class TodoistProjectCollection(Collection):
         return cls(members={item["name"]: cls.type.from_response(item) for item in response})
 
 
+class TodoistTaskPriorityMapping(enum.IntEnum):
+    P1 = 4
+    P2 = 3
+    P3 = 2
+    P4 = 1
+
+
 @dataclasses.dataclass
 class TodoistTask(Item):
     id: Union[int, PendingValue]
@@ -147,6 +156,7 @@ class TodoistTask(Item):
     description: str
     project_id: int
     labels: List[str]
+    priority: int = TodoistTaskPriorityMapping[config.config.todoist_default_priority]
 
     @property
     def primary_key(self) -> str:
