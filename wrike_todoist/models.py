@@ -249,7 +249,6 @@ class TodoistTaskCollection(Collection):
                 description=wrike_task.permalink,
                 content=content,
                 project_id=todoist_project_id,
-                priority=config.config.todoist_default_priority,
                 labels=["Wrike"],
             )
             tasks.append(todoist_task)
