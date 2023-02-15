@@ -112,9 +112,24 @@ def todoist_create_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.
         )
         created_todoist_task = models.TodoistTask.from_response(create_task_response.json())
         logger.info(f"Created new Todoist Task {todoist_task.content}")
-        created[created_todoist_task.primary_key] = created_todoist_task
+        created[created_todoist_task.wrike_numeric_id] = created_todoist_task
 
-    return models.TodoistTaskCollection(*created)
+    return models.TodoistTaskCollection(*created.values())
+
+
+def todoist_update_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.TodoistTaskCollection:
+    updated = {}
+
+    for todoist_task in todoist_tasks:
+        udpate_task_response = requests.post(
+            f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}",
+            headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
+            json=todoist_task.serialize(only={"content", "description"}),
+        )
+        logger.info(f"Updated Todoist Task {todoist_task.content}")
+        updated[todoist_task.wrike_numeric_id] = todoist_task
+
+    return models.TodoistTaskCollection(*updated.values())
 
 
 def todoist_close_tasks(todist_tasks: models.TodoistTaskCollection):
@@ -126,7 +141,7 @@ def todoist_close_tasks(todist_tasks: models.TodoistTaskCollection):
             headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
         )
         if close_task_response.status_code == http.HTTPStatus.NO_CONTENT:
-            closed[todoist_task.primary_key] = todoist_task
-            logger.info(f"Closed Todoist Task {todoist_task.primary_key}.")
+            closed[todoist_task.wrike_numeric_id] = todoist_task
+            logger.info(f"Closed Todoist Task {todoist_task.wrike_numeric_id}.")
 
-    return models.TodoistTaskCollection(*closed)
+    return models.TodoistTaskCollection(*closed.values())

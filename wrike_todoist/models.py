@@ -3,7 +3,8 @@ from __future__ import annotations
 import dataclasses
 import enum
 import logging
-from typing import Dict, List, Type, Optional, Union, NamedTuple, TypeVar, Any, Callable
+import re
+from typing import Dict, List, Type, Optional, Union, NamedTuple, TypeVar, Any, Callable, Iterator
 
 from wrike_todoist import config
 
@@ -19,10 +20,12 @@ class PendingValue:
 
 
 class Item:
-    def serialize(self) -> Dict:
+    def serialize(self, only: Optional[Iterator[str]] = None) -> Dict:
         data = {}
         for field in dataclasses.fields(self):
             name = field.name
+            if only is not None and name not in only:
+                continue
             value = getattr(self, name)
             if not isinstance(value, PendingValue):
                 data[name] = value
@@ -99,10 +102,6 @@ class Collection:
 class WrikeUser(Item):
     id: str
 
-    @property
-    def primary_key(self) -> str:
-        return self.id
-
     @classmethod
     def from_response(cls, response: Dict) -> WrikeUser:
         return cls(id=response["data"][0]["id"])
@@ -112,10 +111,6 @@ class WrikeUser(Item):
 class WrikeFolder(Item):
     id: str
     title: str
-
-    @property
-    def primary_key(self):
-        return self.title
 
     @classmethod
     def from_response(cls, response: Dict):
@@ -136,10 +131,6 @@ class WrikeTask(Item):
     title: str
     permalink: str
     sub_task_ids: List[str]
-
-    @property
-    def primary_key(self) -> str:
-        return self.id
 
     @property
     def numeric_id(self) -> int:
@@ -167,10 +158,6 @@ class WrikeTaskCollection(Collection):
 class TodoistProject(Item):
     id: int
     name: str
-
-    @property
-    def primary_key(self) -> str:
-        return self.name
 
     @classmethod
     def from_response(cls, response: Dict) -> TodoistProject:
@@ -201,9 +188,14 @@ class TodoistTask(Item):
     labels: List[str]
     priority: int = TodoistTaskPriorityMapping[config.config.todoist_default_priority]
 
+    RE_PRIMARY_KEY = re.compile(r"\[#([\d]+)\]")
+
     @property
-    def primary_key(self) -> str:
-        return self.content
+    def wrike_numeric_id(self) -> str:
+        match = self.RE_PRIMARY_KEY.search(self.content)
+        if match is None:
+            raise ValueError(f"Unable to infer wrike_numeric_id from: {self.content}")
+        return match.group(1)
 
     @classmethod
     def from_response(cls, response: Dict) -> TodoistTask:
@@ -223,11 +215,12 @@ class TodoistTask(Item):
 
 class TaskComparisonResult(NamedTuple):
     to_add: TodoistTaskCollection
+    to_update: TodoistTaskCollection
     to_close: TodoistTaskCollection
 
 
 class TodoistTaskCollection(Collection):
-    primary_key_field_name = "content"
+    primary_key_field_name = "description"
     type = TodoistTask
 
     @classmethod
@@ -240,7 +233,7 @@ class TodoistTaskCollection(Collection):
 
         for wrike_task in wrike_tasks:
             if wrike_task.sub_task_ids:
-                logger.info(f"Skipping Wrike Task {wrike_task.primary_key} as has sub-tasks.")
+                logger.info(f"Skipping Wrike Task {wrike_task.numeric_id} as has sub-tasks.")
                 continue
 
             content = f"[#{wrike_task.numeric_id}] {wrike_task.title}"
@@ -258,33 +251,33 @@ class TodoistTaskCollection(Collection):
     @classmethod
     def compare(cls, wrike_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection) -> TaskComparisonResult:
         to_add = TodoistTaskCollection()
-        to_skip = TodoistTaskCollection()
+        to_update = TodoistTaskCollection()
         to_close = TodoistTaskCollection()
 
         for wrike_task in wrike_tasks:
             if wrike_task not in todoist_tasks:
                 to_add += wrike_task
-                logger.info(f"Need to add task {wrike_task.primary_key}.")
+                logger.info(f"Need to add task {wrike_task.wrike_numeric_id}.")
+
             else:
-                to_skip += wrike_task
-                logger.info(f"Skipping Wrike Task {wrike_task.primary_key} as already in Todoist.")
+                todoist_task = todoist_tasks.get(description=wrike_task.description)
+                todoist_task.content = wrike_task.content
+                todoist_task.description = wrike_task.description
+                to_update += todoist_task
+                logger.info(f"Need to update task {wrike_task.wrike_numeric_id}.")
 
         for todoist_task in todoist_tasks:
-            if todoist_task not in to_skip:
+            if (todoist_task not in to_add) and (todoist_task not in to_update):
                 to_close += todoist_task
-                logger.info(f"Need to complete task {todoist_task.primary_key}.")
+                logger.info(f"Need to complete task {todoist_task.wrike_numeric_id}.")
 
-        return TaskComparisonResult(to_add=to_add, to_close=to_close)
+        return TaskComparisonResult(to_add=to_add, to_update=to_update, to_close=to_close)
 
 
 @dataclasses.dataclass
 class TodoistLabel(Item):
     id: Union[int, PendingValue]
     name: str
-
-    @property
-    def primary_key(self) -> str:
-        return self.name
 
     @classmethod
     def from_response(cls, response: Dict) -> TodoistLabel:
