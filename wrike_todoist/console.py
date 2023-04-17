@@ -10,9 +10,11 @@ logger = logging.getLogger(__name__)
 def main():
     wrike_user = api.wrike_get_current_user()
     wrike_folders = api.wrike_get_folders()
-    wrike_folder = wrike_folders.get(title=config.config.wrike_folder)
+    wrike_folders = [wrike_folders.get(title=folder) for folder in config.config.wrike_folders]
 
-    wrike_tasks = api.wrike_get_tasks(wrike_user, wrike_folder)
+    wrike_tasks = models.WrikeTaskCollection()
+    for wrike_folder in wrike_folders:
+        wrike_tasks += api.wrike_get_tasks(wrike_user, wrike_folder)
 
     todoist_project = api.todoist_get_project_by_name(config.config.todoist_project_name)
     actual_todoist_tasks = api.todoist_get_tasks(todoist_project, config.config.todoist_label)
