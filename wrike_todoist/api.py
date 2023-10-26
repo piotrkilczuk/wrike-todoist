@@ -1,6 +1,5 @@
 import http
 import logging
-from pprint import pformat
 
 import requests
 

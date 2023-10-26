@@ -1,5 +1,4 @@
 import logging
-from pprint import pformat
 
 from wrike_todoist import api, models, config
 
