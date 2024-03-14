@@ -1,5 +1,5 @@
 import os
-from pprint import pformat
+from pprint import pformat, pprint
 from typing import NamedTuple, Type, List
 
 import yaml
@@ -19,13 +19,13 @@ Undefined = object()
 
 def read_from_any(key: str, *dicts, default=Undefined, expected=str):
     value = default
-    for dict in dicts:
-        if key in dict:
-            value = dict[key]
-        if key.lower() in dict:
-            value = dict[key.lower()]
-        if key.upper() in dict:
-            value = dict[key.upper()]
+    for dikt in dicts:
+        if key in dikt:
+            value = dikt[key]
+        if key.lower() in dikt:
+            value = dikt[key.lower()]
+        if key.upper() in dikt:
+            value = dikt[key.upper()]
         value = value.strip()
     if expected is list and isinstance(value, str):
         value = [v.strip() for v in value.split(",")]
@@ -42,7 +42,6 @@ def read_config() -> Config:
         read_from_yaml = yaml.safe_load(file)
     except IOError:
         read_from_yaml = {}
-
     return Config(
         wrike_access_token=read_from_any("wrike_access_token", os.environ, read_from_yaml),
         wrike_folders=read_from_any("wrike_folders", os.environ, read_from_yaml, expected=list),

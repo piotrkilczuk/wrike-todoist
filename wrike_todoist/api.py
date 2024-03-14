@@ -1,4 +1,5 @@
 import http
+from itertools import chain
 import logging
 from typing import Union
 import uuid
@@ -38,11 +39,27 @@ def wrike_get_current_user() -> models.WrikeUser:
 
 
 def wrike_get_folders() -> models.WrikeFolderCollection:
-    wrike_folders_response = requests.get(
+    wrike_folders_response_preparatory = requests.get(
         "https://www.wrike.com/api/v4/folders",
         params={"access_token": config.config.wrike_access_token},
     )
-    wrike_folder_collection = models.WrikeFolderCollection.from_response(response_to_json_value(wrike_folders_response))
+
+    wrike_folder_ids = [folder["id"] for folder in wrike_folders_response_preparatory.json()["data"]]
+    wrike_folder_ids_partitioned = [wrike_folder_ids[i : i + 100] for i in range(0, len(wrike_folder_ids), 100)]
+
+    wrike_folders_response_batched = [
+        requests.get(
+            f"https://www.wrike.com/api/v4/folders/{','.join(folders)}",
+            params={
+                "access_token": config.config.wrike_access_token,
+            },
+        )
+        for folders in wrike_folder_ids_partitioned
+    ]
+    wrike_folders_response_chained = list(
+        chain(*[response_to_json_value(r)["data"] for r in wrike_folders_response_batched])
+    )
+    wrike_folder_collection = models.WrikeFolderCollection.from_response(wrike_folders_response_chained)
     logger.info(f"Retrieved {len(wrike_folder_collection)} Wrike Folders.")
     return wrike_folder_collection
 
@@ -143,7 +160,7 @@ def todoist_update_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.
     updated = {}
 
     for todoist_task in todoist_tasks:
-        udpate_task_response = requests.post(
+        update_task_response = requests.post(
             f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}",
             headers={
                 "Authorization": f"Bearer {config.config.todoist_access_token}",

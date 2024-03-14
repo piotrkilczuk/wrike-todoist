@@ -3,6 +3,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import logging
+from pprint import pformat
 import re
 from typing import Dict, List, Type, Optional, Union, NamedTuple, TypeVar, Any, Callable, Iterator
 
@@ -113,18 +114,19 @@ class WrikeUser(Item):
 class WrikeFolder(Item):
     id: str
     title: str
+    permalink: str
 
     @classmethod
     def from_response(cls, response: Dict):
-        return cls(id=response["id"], title=response["title"])
+        return cls(id=response["id"], title=response["title"], permalink=response["permalink"])
 
 
 class WrikeFolderCollection(Collection):
     type = WrikeFolder
 
     @classmethod
-    def from_response(cls, response: Dict) -> WrikeFolderCollection:
-        return cls(*[cls.type.from_response(item) for item in response["data"]])
+    def from_response(cls, response: List[Dict]) -> WrikeFolderCollection:
+        return cls(*[cls.type.from_response(item) for item in response])
 
 
 @dataclasses.dataclass
