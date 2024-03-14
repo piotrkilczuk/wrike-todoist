@@ -1,13 +1,13 @@
 import os
 from pprint import pformat
-from typing import NamedTuple, Type
+from typing import NamedTuple, Type, List
 
 import yaml
 
 
 class Config(NamedTuple):
     wrike_access_token: str
-    wrike_folders: list[str]
+    wrike_folders: List[str]
     todoist_access_token: str
     todoist_project_name: str
     todoist_label: str
@@ -26,6 +26,7 @@ def read_from_any(key: str, *dicts, default=Undefined, expected=str):
             value = dict[key.lower()]
         if key.upper() in dict:
             value = dict[key.upper()]
+        value = value.strip()
     if expected is list and isinstance(value, str):
         value = [v.strip() for v in value.split(",")]
     if not isinstance(value, expected):

@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 def main():
     wrike_user = api.wrike_get_current_user()
     wrike_folders = api.wrike_get_folders()
-    wrike_folders = [wrike_folders.get(title=folder) for folder in config.config.wrike_folders]
+
+    wrike_folders = [wrike_folders.get(id=folder) for folder in config.config.wrike_folders]
 
     wrike_tasks = models.WrikeTaskCollection()
     for wrike_folder in wrike_folders:

@@ -27,7 +27,9 @@ class Item:
             if only is not None and name not in only:
                 continue
             value = getattr(self, name)
-            if not isinstance(value, PendingValue):
+            if isinstance(value, enum.Enum):
+                data[name] = value.value
+            elif not isinstance(value, PendingValue):
                 data[name] = value
         return data
 
