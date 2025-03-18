@@ -1,4 +1,4 @@
 #!/usr/bin/env python
-from wrike_todoist import console
+from wrike_todoist.console import main
 
-console.main()
+main()
