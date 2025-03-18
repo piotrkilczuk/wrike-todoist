@@ -9,6 +9,8 @@ license = "MIT"
 python = "^3.8"
 requests = "^2.31.0"
 PyYAML = "^6.0"
+google-api-python-client = "^2.164.0"
+pendulum = "^3.0.0"
 
 [tool.poetry.dev-dependencies]
 
