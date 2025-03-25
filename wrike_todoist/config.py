@@ -5,11 +5,9 @@ import yaml
 
 
 class Config(NamedTuple):
-    gcp_project_id: str
-    gcp_private_key_id: str
-    gcp_private_key: str
-    gcp_client_email: str
     gcp_client_id: str
+    gcp_client_secret: str
+    google_calendar_refresh_token: str
     google_calendar_id: str
     todoist_access_token: str
     todoist_project_name: str
@@ -53,15 +51,15 @@ def read_config() -> Config:
     except IOError:
         read_from_yaml = {}
     return Config(
-        gcp_project_id=read_from_any("gcp_project_id", os.environ, read_from_yaml),
-        gcp_private_key_id=read_from_any(
-            "gcp_private_key_id", os.environ, read_from_yaml
-        ),
-        gcp_private_key=read_from_any("gcp_private_key", os.environ, read_from_yaml),
-        gcp_client_email=read_from_any("gcp_client_email", os.environ, read_from_yaml),
         gcp_client_id=read_from_any("gcp_client_id", os.environ, read_from_yaml),
+        gcp_client_secret=read_from_any(
+            "gcp_client_secret", os.environ, read_from_yaml
+        ),
         google_calendar_id=read_from_any(
             "google_calendar_id", os.environ, read_from_yaml
+        ),
+        google_calendar_refresh_token=read_from_any(
+            "google_calendar_refresh_token", os.environ, read_from_yaml
         ),
         todoist_access_token=read_from_any(
             "todoist_access_token", os.environ, read_from_yaml

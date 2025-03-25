@@ -3,7 +3,7 @@ from pprint import pprint
 import time
 from typing import Callable, Iterator
 
-from google.oauth2.service_account import Credentials
+from google.oauth2.credentials import Credentials
 from googleapiclient import discovery
 import pendulum
 
@@ -12,20 +12,13 @@ from wrike_todoist.google_calendar import models
 
 
 def requires_service(func) -> Callable:
-    credentials = Credentials.from_service_account_info(
+    credentials = Credentials.from_authorized_user_info(
         {
-            "type": "service_account",
-            "project_id": config.config.gcp_project_id,
-            "private_key_id": config.config.gcp_private_key_id,
-            "private_key": config.config.gcp_private_key,
-            "client_email": config.config.gcp_client_email,
+            "refresh_token": config.config.google_calendar_refresh_token,
             "client_id": config.config.gcp_client_id,
-            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-            "token_uri": "https://oauth2.googleapis.com/token",
-            "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-            "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/wrike-todoist-google-calendar%40utopian-plane-453519-d4.iam.gserviceaccount.com",
-            "universe_domain": "googleapis.com",
-        }
+            "client_secret": config.config.gcp_client_secret,
+        },
+        scopes=["https://www.googleapis.com/auth/calendar.readonly"],
     )
     service = discovery.build("calendar", "v3", credentials=credentials).events()
 
