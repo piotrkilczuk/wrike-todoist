@@ -14,7 +14,9 @@ def todoist_get_project_by_name(name: str) -> models.TodoistProject:
         "https://api.todoist.com/rest/v2/projects",
         headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
     )
-    todoist_projects = models.TodoistProjectCollection.from_response(response_to_json_value(todoist_projects_response))
+    todoist_projects = models.TodoistProjectCollection.from_response(
+        response_to_json_value(todoist_projects_response)
+    )
     logger.info(f"Retrieved {len(todoist_projects)} Todoist Projects.")
     todoist_project = todoist_projects.get(name=name)
     logger.info(f"{name} is a valid Todoist Project.")
@@ -27,7 +29,9 @@ def todoist_get_or_create_label(name: str) -> models.TodoistLabel:
         headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
     )
 
-    todoist_labels = models.TodoistLabelCollection.from_response(response_to_json_value(todoist_labels_response))
+    todoist_labels = models.TodoistLabelCollection.from_response(
+        response_to_json_value(todoist_labels_response)
+    )
     logger.info(f"Retrieved {len(todoist_labels)} Todoist Labels.")
 
     try:
@@ -44,23 +48,44 @@ def todoist_get_or_create_label(name: str) -> models.TodoistLabel:
             headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
             json=todoist_label.serialize(),
         )
-        todoist_label =models.TodoistLabel.from_response(response_to_json_value(todoist_label_response))
+        todoist_label = models.TodoistLabel.from_response(
+            response_to_json_value(todoist_label_response)
+        )
         logger.info(f"Successfully created Todoist Label {todoist_label.name}")
         return todoist_label
 
 
-def todoist_get_tasks(todoist_project: models.TodoistProject, todoist_label: str) -> models.TodoistTaskCollection:
+def todoist_get_tasks(
+    todoist_project: models.TodoistProject,
+    only_due_today: bool = False,
+    with_completed_today: bool = False,
+) -> models.TodoistTaskCollection:
     todoist_tasks_response = requests.get(
         "https://api.todoist.com/rest/v2/tasks/",
-        params={"project_id": todoist_project.id, "label": todoist_label},
+        params={"project_id": todoist_project.id},
         headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
     )
-    todoist_task_collection = models.TodoistTaskCollection.from_response(response_to_json_value(todoist_tasks_response))
+    response_as_list_of_dict = response_to_json_value(todoist_tasks_response)
+
+    if with_completed_today:
+        raise NotImplementedError('This feature isnt there yet')
+
+    if only_due_today:
+        response_as_list_of_dict = [
+            task
+            for task in response_as_list_of_dict
+            if task["due"] and task["due"]["string"] == "today"
+        ]
+    todoist_task_collection = models.TodoistTaskCollection.from_response(
+        response_as_list_of_dict
+    )
     logger.info(f"Retrieved {len(todoist_task_collection)} Todoist Tasks.")
     return todoist_task_collection
 
 
-def todoist_create_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.TodoistTaskCollection:
+def todoist_create_tasks(
+    todoist_tasks: models.TodoistTaskCollection,
+) -> models.TodoistTaskCollection:
     created = {}
 
     for todoist_task in todoist_tasks:
@@ -73,14 +98,18 @@ def todoist_create_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.
             json=todoist_task.serialize(),
         )
 
-        created_todoist_task = models.TodoistTask.from_response(response_to_json_value(create_task_response))
+        created_todoist_task = models.TodoistTask.from_response(
+            response_to_json_value(create_task_response)
+        )
         logger.info(f"Created new Todoist Task {todoist_task.content}")
-        created[created_todoist_task.wrike_numeric_id] = created_todoist_task
+        created[created_todoist_task.permalink] = created_todoist_task
 
     return models.TodoistTaskCollection(*created.values())
 
 
-def todoist_update_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.TodoistTaskCollection:
+def todoist_update_tasks(
+    todoist_tasks: models.TodoistTaskCollection,
+) -> models.TodoistTaskCollection:
     updated = {}
 
     for todoist_task in todoist_tasks:
@@ -90,11 +119,11 @@ def todoist_update_tasks(todoist_tasks: models.TodoistTaskCollection) -> models.
                 "Authorization": f"Bearer {config.config.todoist_access_token}",
                 "X-Request-Id": uuid.uuid4().hex,
             },
-            json=todoist_task.serialize(only={"content", "description"}),
+            json=todoist_task.serialize(only={"content", "description", "priority"}),
         )
         update_task_response.raise_for_status()  # @TODO: or maybe load the contents?
         logger.info(f"Updated Todoist Task {todoist_task.content}")
-        updated[todoist_task.wrike_numeric_id] = todoist_task
+        updated[todoist_task.permalink] = todoist_task
 
     return models.TodoistTaskCollection(*updated.values())
 
@@ -111,7 +140,25 @@ def todoist_close_tasks(todist_tasks: models.TodoistTaskCollection):
             },
         )
         if close_task_response.status_code == http.HTTPStatus.NO_CONTENT:
-            closed[todoist_task.wrike_numeric_id] = todoist_task
-            logger.info(f"Closed Todoist Task {todoist_task.wrike_numeric_id}.")
+            closed[todoist_task.permalink] = todoist_task
+            logger.info(f"Closed Todoist Task {todoist_task.permalink}.")
 
     return models.TodoistTaskCollection(*closed.values())
+
+
+def todoist_remove_tasks(todoist_tasks: models.TodoistTaskCollection):
+    removed = {}
+
+    for todoist_task in todoist_tasks:
+        remove_task_response = requests.delete(
+            f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}",
+            headers={
+                "Authorization": f"Bearer {config.config.todoist_access_token}",
+                "X-Request-Id": uuid.uuid4().hex,
+            },
+        )
+        if remove_task_response.status_code == http.HTTPStatus.NO_CONTENT:
+            removed[todoist_task.permalink] = todoist_task
+            logger.info(f"Removed Todoist Task {todoist_task.permalink}.")
+
+    return models.TodoistTaskCollection(*removed.values())

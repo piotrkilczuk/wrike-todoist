@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import dataclasses
-from typing import Optional, Dict
+from typing import Optional, Dict, Union
+
+from wrike_todoist.models import Collection
 
 
 @dataclasses.dataclass
@@ -10,16 +12,41 @@ class Creator:
     email: str
     self: bool
 
+    @classmethod
+    def from_response(cls, response: Union[Dict, None]):
+        if response is None:
+            raise NotImplementedError(response)
+        return cls(
+            displayName=response["displayName"],
+            email=response["email"],
+            self=response["self"],
+        )
+
 
 @dataclasses.dataclass
 class TimeInfo:
     dateTime: str
     timeZone: str
 
+    @classmethod
+    def from_response(cls, response: Union[Dict, None]):
+        if response is None:
+            return None
+        return cls(
+            dateTime=response["dateTime"],
+            timeZone=response["timeZone"],
+        )
+
 
 @dataclasses.dataclass
 class Reminders:
     useDefault: bool
+
+    @classmethod
+    def from_response(cls, response: Union[Dict, None]):
+        if response is None:
+            raise NotImplementedError(response)
+        return cls(useDefault=response["useDefault"])
 
 
 @dataclasses.dataclass
@@ -47,8 +74,8 @@ class CalendarEvent:
     def from_response(cls, response: Dict) -> CalendarEvent:
         return cls(
             created=response["created"],
-            creator=Creator(**response["creator"]),
-            end=TimeInfo(**response["end"]),
+            creator=Creator.from_response(response["creator"]),
+            end=TimeInfo.from_response(response["end"]),
             etag=response["etag"],
             eventType=response["eventType"],
             htmlLink=response["htmlLink"],
@@ -56,12 +83,20 @@ class CalendarEvent:
             id=response["id"],
             kind=response["kind"],
             organizer=Creator(**response["organizer"]),
-            originalStartTime=TimeInfo(**response.get("originalStartTime")),
+            originalStartTime=TimeInfo.from_response(response.get("originalStartTime")),
             recurringEventId=response.get("recurringEventId"),
-            reminders=Reminders(**response["reminders"]),
+            reminders=Reminders.from_response(response["reminders"]),
             sequence=response["sequence"],
-            start=TimeInfo(**response["start"]),
+            start=TimeInfo.from_response(response["start"]),
             status=response["status"],
             summary=response["summary"],
             updated=response["updated"],
         )
+
+
+class CalendarEventCollection(Collection):
+    type = CalendarEvent
+
+    @classmethod
+    def from_response(cls, response: Dict) -> CalendarEventCollection:
+        return cls(*[cls.type.from_response(item) for item in response["items"]])

@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import re
-from typing import Dict, List, Union, NamedTuple
+from typing import Dict, List, Union, NamedTuple, Optional
 
 from wrike_todoist import config
 from wrike_todoist.models import Item, Collection, PendingValue, logger
@@ -43,14 +43,28 @@ class TodoistTask(Item):
     labels: List[str]
     priority: int = TodoistTaskPriorityMapping[config.config.todoist_default_priority]
 
-    RE_PRIMARY_KEY = re.compile(r"\[#([\d]+)\]")
+    # These two are only used during write
+    due_string: Optional[str] = None
+    due_lang: Optional[str] = None
+
+    # RE_PRIMARY_KEY = re.compile(r"^\[#?([^\]]+)\]")
+    RE_PERMALINK = re.compile(r"https?://[^\s<>\"]+")
 
     @property
-    def wrike_numeric_id(self) -> str:
+    def foreign_key(self) -> str:
+        raise NotImplementedError("This shouldnt be used any longer")
+
         match = self.RE_PRIMARY_KEY.search(self.content)
         if match is None:
             raise ValueError(f"Unable to infer wrike_numeric_id from: {self.content}")
         return match.group(1)
+
+    @property
+    def permalink(self) -> str:
+        match = self.RE_PERMALINK.search(self.description)
+        if match is None:
+            raise ValueError(f"Unable to infer permalink from: {self.description}")
+        return match.group(0)
 
     @classmethod
     def from_response(cls, response: Dict) -> TodoistTask:
@@ -78,18 +92,24 @@ class TodoistTaskCollection(Collection):
     primary_key_field_name = "description"
     type = TodoistTask
 
+    RE_PRIORITY = r"\b(P[1-4])\b"
+
     @classmethod
     def from_response(cls, response: List[Dict]) -> TodoistTaskCollection:
         return cls(*[cls.type.from_response(item) for item in response])
 
     # @TODO: This should be an adapter, outside of the per-service model
     @classmethod
-    def from_wrike_tasks(cls, wrike_tasks: Collection, todoist_project_id: int) -> TodoistTaskCollection:
+    def from_wrike_tasks(
+        cls, wrike_tasks: Collection, todoist_project_id: int
+    ) -> TodoistTaskCollection:
         tasks = []
 
         for wrike_task in wrike_tasks:
             if wrike_task.sub_task_ids:
-                logger.info(f"Skipping Wrike Task {wrike_task.numeric_id} as has sub-tasks.")
+                logger.info(
+                    f"Skipping Wrike Task {wrike_task.numeric_id} as has sub-tasks."
+                )
                 continue
 
             content = f"[#{wrike_task.numeric_id}] {wrike_task.title}"
@@ -104,8 +124,38 @@ class TodoistTaskCollection(Collection):
 
         return cls(*tasks)
 
+    #  @TODO: This should be an adapter, outside of the per-service model
     @classmethod
-    def compare(cls, wrike_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection) -> TaskComparisonResult:
+    def from_calendar_events(
+        cls, calendar_events: Collection, todoist_project_id: int
+    ) -> TodoistTaskCollection:
+        tasks = []
+
+        for calendar_event in calendar_events:
+            match = re.search(cls.RE_PRIORITY, calendar_event.summary)
+            priority_name = (
+                match.group(1) if match else config.config.todoist_default_priority
+            )
+            priority_value = TodoistTaskPriorityMapping[priority_name].value
+            summary = calendar_event.summary.replace(priority_name, "").strip()
+            todoist_task = TodoistTask(
+                id=PendingValue(),
+                content=summary,
+                description=calendar_event.htmlLink,
+                project_id=todoist_project_id,
+                due_string="today",
+                due_lang="en",
+                labels=["Calendar"],
+                priority=priority_value,
+            )
+            tasks.append(todoist_task)
+
+        return cls(*tasks)
+
+    @classmethod
+    def compare_wrike(
+        cls, wrike_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection
+    ) -> TaskComparisonResult:
         to_add = TodoistTaskCollection()
         to_update = TodoistTaskCollection()
         to_close = TodoistTaskCollection()
@@ -113,21 +163,55 @@ class TodoistTaskCollection(Collection):
         for wrike_task in wrike_tasks:
             if wrike_task not in todoist_tasks:
                 to_add += wrike_task
-                logger.info(f"Need to add task {wrike_task.wrike_numeric_id}.")
+                logger.info(f"Need to add task {wrike_task.content}.")
 
             else:
                 todoist_task = todoist_tasks.get(description=wrike_task.description)
                 todoist_task.content = wrike_task.content
                 todoist_task.description = wrike_task.description
                 to_update += todoist_task
-                logger.info(f"Need to update task {wrike_task.wrike_numeric_id}.")
+                logger.info(f"Need to update task {wrike_task.content}.")
 
         for todoist_task in todoist_tasks:
             if (todoist_task not in to_add) and (todoist_task not in to_update):
                 to_close += todoist_task
-                logger.info(f"Need to complete task {todoist_task.wrike_numeric_id}.")
+                logger.info(f"Need to complete task {todoist_task.content}.")
 
-        return TaskComparisonResult(to_add=to_add, to_update=to_update, to_close=to_close)
+        return TaskComparisonResult(
+            to_add=to_add, to_update=to_update, to_close=to_close
+        )
+
+    @classmethod
+    def compare_calendar(
+        cls,
+        calendar_events: TodoistTaskCollection,
+        todoist_tasks: TodoistTaskCollection,
+    ) -> TaskComparisonResult:
+        to_add = TodoistTaskCollection()
+        to_update = TodoistTaskCollection()
+        to_close = TodoistTaskCollection()
+
+        for calendar_event in calendar_events:
+            if calendar_event not in todoist_tasks:
+                to_add += calendar_event
+                logger.info(f"Need to add task {calendar_event.content}.")
+
+            else:
+                todoist_task = todoist_tasks.get(description=calendar_event.description)
+                todoist_task.content = calendar_event.content
+                todoist_task.description = calendar_event.description
+                todoist_task.priority = calendar_event.priority
+                to_update += todoist_task
+                logger.info(f"Need to update task {calendar_event.content}.")
+
+        for todoist_task in todoist_tasks:
+            if (todoist_task not in to_add) and (todoist_task not in to_update):
+                to_close += todoist_task
+                logger.info(f"Need to remove task {todoist_task.content}.")
+
+        return TaskComparisonResult(
+            to_add=to_add, to_update=to_update, to_close=to_close
+        )
 
 
 @dataclasses.dataclass

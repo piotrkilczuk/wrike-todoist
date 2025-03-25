@@ -1,6 +1,5 @@
 import datetime
-from pprint import pprint
-import time
+import logging
 from typing import Callable, Iterator
 
 from google.oauth2.credentials import Credentials
@@ -9,6 +8,10 @@ import pendulum
 
 from wrike_todoist import config
 from wrike_todoist.google_calendar import models
+from wrike_todoist.google_calendar.models import CalendarEventCollection
+
+
+logger = logging.getLogger(__name__)
 
 
 def requires_service(func) -> Callable:
@@ -46,26 +49,22 @@ def page_iterator(
         items = response.get("items", [])
         for item in items:
             yield item
-        request = service.events().list_next(request, response)
+        request = service.list_next(request, response)
 
 
 @requires_service
-def pull_todays_events(service: discovery.Resource):
+def pull_todays_events(service: discovery.Resource) -> CalendarEventCollection:
     start_of_day = pendulum.today()
     end_of_day = pendulum.tomorrow()
 
-    print(start_of_day, end_of_day)
+    events_hydrated = []
 
-    events = page_iterator(
+    api_events = page_iterator(
         service, config.config.google_calendar_id, start_of_day, end_of_day
     )
-    for event_response in events:
-        print()
-        pprint(event_response)
-        calendar_event = models.CalendarEvent.from_response(event_response)
+    for event_response in api_events:
+        events_hydrated.append(models.CalendarEvent.from_response(event_response))
 
-        print()
-        print(calendar_event)
-        time.sleep(1)
+    logger.info("Retrieved %d calendar events.", len(events_hydrated))
 
-    raise NotImplementedError(...)
+    return CalendarEventCollection(*events_hydrated)

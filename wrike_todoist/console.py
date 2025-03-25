@@ -10,9 +10,26 @@ logger = logging.getLogger(__name__)
 
 
 def google_calendar_todoist_main():
-    google_calendar_api.pull_todays_events()
+    calendar_events = google_calendar_api.pull_todays_events()
 
-    raise NotImplementedError
+    todoist_project = todoist_api.todoist_get_project_by_name(
+        "Calendar"  # @TODO: Parametrize
+    )
+    actual_todoist_tasks = todoist_api.todoist_get_tasks(
+        todoist_project, only_due_today=True, with_completed_today=True
+    )
+
+    expected_todoist_tasks = todoist_models.TodoistTaskCollection.from_calendar_events(
+        calendar_events, todoist_project.id
+    )
+
+    comparison_result = todoist_models.TodoistTaskCollection.compare_calendar(
+        expected_todoist_tasks, actual_todoist_tasks
+    )
+
+    todoist_api.todoist_create_tasks(comparison_result.to_add)
+    todoist_api.todoist_update_tasks(comparison_result.to_update)
+    todoist_api.todoist_remove_tasks(comparison_result.to_close)
 
 
 def wrike_todoist_main():
@@ -29,15 +46,13 @@ def wrike_todoist_main():
     todoist_project = todoist_api.todoist_get_project_by_name(
         config.config.todoist_project_name
     )
-    actual_todoist_tasks = todoist_api.todoist_get_tasks(
-        todoist_project, config.config.todoist_label
-    )
+    actual_todoist_tasks = todoist_api.todoist_get_tasks(todoist_project)
 
     expected_todoist_tasks = todoist_models.TodoistTaskCollection.from_wrike_tasks(
         wrike_tasks, todoist_project.id
     )
 
-    comparison_result = todoist_models.TodoistTaskCollection.compare(
+    comparison_result = todoist_models.TodoistTaskCollection.compare_wrike(
         expected_todoist_tasks, actual_todoist_tasks
     )
 
@@ -48,4 +63,4 @@ def wrike_todoist_main():
 
 def main():
     google_calendar_todoist_main()
-    # wrike_todoist_main()
+    wrike_todoist_main()
