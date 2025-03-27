@@ -1,3 +1,4 @@
+import datetime
 import http
 import uuid
 
@@ -56,9 +57,7 @@ def todoist_get_or_create_label(name: str) -> models.TodoistLabel:
 
 
 def todoist_get_tasks(
-    todoist_project: models.TodoistProject,
-    only_due_today: bool = False,
-    with_completed_today: bool = False,
+    todoist_project: models.TodoistProject, only_due_today: bool = False
 ) -> models.TodoistTaskCollection:
     todoist_tasks_response = requests.get(
         "https://api.todoist.com/rest/v2/tasks/",
@@ -66,21 +65,45 @@ def todoist_get_tasks(
         headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
     )
     response_as_list_of_dict = response_to_json_value(todoist_tasks_response)
-
-    if with_completed_today:
-        raise NotImplementedError('This feature isnt there yet')
-
-    if only_due_today:
-        response_as_list_of_dict = [
-            task
-            for task in response_as_list_of_dict
-            if task["due"] and task["due"]["string"] == "today"
-        ]
     todoist_task_collection = models.TodoistTaskCollection.from_response(
         response_as_list_of_dict
     )
     logger.info(f"Retrieved {len(todoist_task_collection)} Todoist Tasks.")
     return todoist_task_collection
+
+
+def todoist_get_completed_task(task_id: int) -> models.TodoistTask:
+    todoist_task_response = requests.get(
+        "https://api.todoist.com/sync/v9/items/get",
+        params={
+            "item_id": task_id,
+        },
+        headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
+    )
+    task_data = response_to_json_value(todoist_task_response)
+    return models.TodoistTask.from_response(task_data["item"])
+
+
+def todoist_get_completed_tasks(
+    todoist_project: models.TodoistProject, since: datetime.datetime
+) -> models.TodoistTaskCollection:
+    todoist_tasks_response = requests.get(
+        "https://api.todoist.com/sync/v9/completed/get_all",
+        params={
+            "project_id": todoist_project.id,
+            "since": since.isoformat(),
+        },
+        headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
+    )
+
+    todoist_tasks = []
+    for rudimentary_task_data in response_to_json_value(todoist_tasks_response).get(
+        "items", []
+    ):
+        todoist_task = todoist_get_completed_task(rudimentary_task_data["task_id"])
+        todoist_tasks.append(todoist_task)
+
+    return models.TodoistTaskCollection(*todoist_tasks)
 
 
 def todoist_create_tasks(

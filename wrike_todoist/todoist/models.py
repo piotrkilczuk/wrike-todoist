@@ -5,6 +5,8 @@ import enum
 import re
 from typing import Dict, List, Union, NamedTuple, Optional
 
+import pendulum
+
 from wrike_todoist import config
 from wrike_todoist.models import Item, Collection, PendingValue, logger
 
@@ -35,6 +37,30 @@ class TodoistTaskPriorityMapping(enum.IntEnum):
 
 
 @dataclasses.dataclass
+class Due:
+    date: pendulum.Date  # would be good to convert to pendulum.Date
+    is_recurring: bool
+    datetime: pendulum.DateTime  # would be good to convert to pendulum.DateTime
+    string: str
+    timezone: str
+
+    @classmethod
+    def from_response(cls, response: Union[Dict, None]) -> Union[Due, None]:
+        if response is None:
+            return None
+        raw_datetime = response.get("datetime") or response.get("date")
+        datetime = pendulum.parse(raw_datetime) if raw_datetime else None
+        timezone = response.get("timezone", "UTC")
+        return cls(
+            date=pendulum.parse(response["date"]),
+            is_recurring=response["is_recurring"],
+            datetime=datetime,
+            string=response["string"],
+            timezone=timezone,
+        )
+
+
+@dataclasses.dataclass
 class TodoistTask(Item):
     id: Union[int, PendingValue]
     content: str
@@ -47,17 +73,10 @@ class TodoistTask(Item):
     due_string: Optional[str] = None
     due_lang: Optional[str] = None
 
-    # RE_PRIMARY_KEY = re.compile(r"^\[#?([^\]]+)\]")
+    # This only used during read
+    due: Optional[Due] = None
+
     RE_PERMALINK = re.compile(r"https?://[^\s<>\"]+")
-
-    @property
-    def foreign_key(self) -> str:
-        raise NotImplementedError("This shouldnt be used any longer")
-
-        match = self.RE_PRIMARY_KEY.search(self.content)
-        if match is None:
-            raise ValueError(f"Unable to infer wrike_numeric_id from: {self.content}")
-        return match.group(1)
 
     @property
     def permalink(self) -> str:
@@ -68,12 +87,14 @@ class TodoistTask(Item):
 
     @classmethod
     def from_response(cls, response: Dict) -> TodoistTask:
+        due = Due.from_response(response["due"])
         return cls(
             id=response["id"],
             content=response["content"],
             description=response["description"],
             project_id=response["project_id"],
             labels=response["labels"],
+            due=due,
         )
 
     def update_from_response(self, response: Dict):

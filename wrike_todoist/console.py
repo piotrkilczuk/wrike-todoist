@@ -1,5 +1,7 @@
 import logging
 
+import pendulum
+
 from wrike_todoist import config
 from wrike_todoist.google_calendar import api as google_calendar_api
 from wrike_todoist.wrike import api as wrike_api, models as wrike_models
@@ -16,9 +18,17 @@ def google_calendar_todoist_main():
         "Calendar"  # @TODO: Parametrize
     )
     actual_todoist_tasks = todoist_api.todoist_get_tasks(
-        todoist_project, only_due_today=True, with_completed_today=True
+        todoist_project, only_due_today=True
     )
-
+    actual_todoist_tasks_only_due_today = actual_todoist_tasks.filter(
+        lambda task: task.due and task.due.date == pendulum.today()
+    )
+    actual_todoist_tasks_completed_today = todoist_api.todoist_get_completed_tasks(
+        todoist_project, since=pendulum.today()
+    )
+    actual_todoist_tasks = (
+        actual_todoist_tasks_only_due_today + actual_todoist_tasks_completed_today
+    )
     expected_todoist_tasks = todoist_models.TodoistTaskCollection.from_calendar_events(
         calendar_events, todoist_project.id
     )
