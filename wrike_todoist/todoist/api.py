@@ -142,7 +142,9 @@ def todoist_update_tasks(
                 "Authorization": f"Bearer {config.config.todoist_access_token}",
                 "X-Request-Id": uuid.uuid4().hex,
             },
-            json=todoist_task.serialize(only={"content", "description", "priority"}),
+            json=todoist_task.serialize(
+                only={"content", "description", "priority", "due_string"}
+            ),
         )
         update_task_response.raise_for_status()  # @TODO: or maybe load the contents?
         logger.info(f"Updated Todoist Task {todoist_task.content}")

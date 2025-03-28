@@ -159,12 +159,16 @@ class TodoistTaskCollection(Collection):
             )
             priority_value = TodoistTaskPriorityMapping[priority_name].value
             summary = calendar_event.summary.replace(priority_name, "").strip()
+            due_time = calendar_event.start.dateTime.time().isoformat(
+                timespec="minutes"
+            )
+            due_string = f"today {due_time}"
             todoist_task = TodoistTask(
                 id=PendingValue(),
                 content=summary,
                 description=calendar_event.htmlLink,
                 project_id=todoist_project_id,
-                due_string="today",
+                due_string=due_string,
                 due_lang="en",
                 labels=["Calendar"],
                 priority=priority_value,
@@ -222,6 +226,7 @@ class TodoistTaskCollection(Collection):
                 todoist_task.content = calendar_event.content
                 todoist_task.description = calendar_event.description
                 todoist_task.priority = calendar_event.priority
+                todoist_task.due_string = calendar_event.due_string
                 to_update += todoist_task
                 logger.info(f"Need to update task {calendar_event.content}.")
 

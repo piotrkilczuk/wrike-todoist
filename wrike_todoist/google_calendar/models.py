@@ -3,6 +3,9 @@ from __future__ import annotations
 import dataclasses
 from typing import Optional, Dict, Union
 
+import pendulum
+from pendulum import DateTime
+
 from wrike_todoist.models import Collection
 
 
@@ -25,7 +28,7 @@ class Creator:
 
 @dataclasses.dataclass
 class TimeInfo:
-    dateTime: str
+    dateTime: DateTime
     timeZone: str
 
     @classmethod
@@ -33,7 +36,7 @@ class TimeInfo:
         if response is None:
             return None
         return cls(
-            dateTime=response["dateTime"],
+            dateTime=pendulum.parse(response["dateTime"]),
             timeZone=response["timeZone"],
         )
 
