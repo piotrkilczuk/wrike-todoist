@@ -43,7 +43,9 @@ class Collection:
     def __init__(self, *members: CollectionType):
         for member in members:
             if not isinstance(member, self.type):
-                raise ValueError(f"Invalid member {member}. Required type is {self.type}.")
+                raise ValueError(
+                    f"Invalid member {member}. Required type is {self.type}."
+                )
         self._members = list(members)
 
     def __iter__(self):
@@ -52,10 +54,19 @@ class Collection:
     def __len__(self):
         return len(self._members)
 
+    def __bool__(self):
+        return bool(self._members)
+
     def __contains__(self, item):
         try:
-            self.get(**{self.primary_key_field_name: getattr(item, self.primary_key_field_name)})
-            return True
+            sub_collection = self.filter(
+                **{
+                    self.primary_key_field_name: getattr(
+                        item, self.primary_key_field_name
+                    )
+                }
+            )
+            return bool(sub_collection)
         except ValueError:
             return False
 
@@ -69,7 +80,9 @@ class Collection:
             self._members.append(other)
         return self
 
-    def filter(self, fn: Optional[Callable[[Item], bool]] = None, **fields: Any) -> Collection:
+    def filter(
+        self, fn: Optional[Callable[[Item], bool]] = None, **fields: Any
+    ) -> Collection:
         if fn and fields:
             raise ValueError("Use either fn or **fields.")
 
@@ -88,7 +101,9 @@ class Collection:
 
         return collection_type(*members)
 
-    def get(self, fn: Optional[Callable[[Item], bool]] = None, **fields: Any) -> CollectionType:
+    def get(
+        self, fn: Optional[Callable[[Item], bool]] = None, **fields: Any
+    ) -> CollectionType:
         filtered = self.filter(fn, **fields)
         if not filtered:
             raise ValueError(f"No objects found - {fn=} {fields=}.")
@@ -96,4 +111,10 @@ class Collection:
             raise ValueError(f"Multiple objects found - {fn=} {fields=}.")
         return filtered[0]
 
+    def distinct(self) -> Collection:
+        distinct_collections = {}
 
+        for item in self:
+            distinct_collections[getattr(item, self.primary_key_field_name)] = item
+
+        return type(self)(*distinct_collections.values())

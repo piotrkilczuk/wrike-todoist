@@ -27,7 +27,7 @@ def google_calendar_todoist_main():
     )
     actual_todoist_tasks = (
         actual_todoist_tasks_only_due_today + actual_todoist_tasks_completed_today
-    )
+    ).distinct()
     expected_todoist_tasks = todoist_models.TodoistTaskCollection.from_calendar_events(
         calendar_events, todoist_project.id
     )
