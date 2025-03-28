@@ -7,7 +7,6 @@ from wrike_todoist.google_calendar import api as google_calendar_api
 from wrike_todoist.wrike import api as wrike_api, models as wrike_models
 from wrike_todoist.todoist import api as todoist_api, models as todoist_models
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -72,5 +71,6 @@ def wrike_todoist_main():
 
 
 def main():
+    logging.basicConfig(level=logging.INFO)
     google_calendar_todoist_main()
     wrike_todoist_main()
