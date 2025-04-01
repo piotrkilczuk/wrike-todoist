@@ -90,8 +90,10 @@ class Collection:
         members = []
 
         for item in self:
-            if fn and fn(item):
-                members.append(item)
+            if fn:
+                if fn(item):
+                    members.append(item)
+                continue
 
             for field_name, field_value in fields.items():
                 if getattr(item, field_name) != field_value:

@@ -166,7 +166,7 @@ def todoist_close_tasks(todist_tasks: models.TodoistTaskCollection):
         )
         if close_task_response.status_code == http.HTTPStatus.NO_CONTENT:
             closed[todoist_task.permalink] = todoist_task
-            logger.info(f"Closed Todoist Task {todoist_task.permalink}.")
+            logger.info(f"Closed Todoist Task {todoist_task.description}.")
 
     return models.TodoistTaskCollection(*closed.values())
 
@@ -184,6 +184,6 @@ def todoist_remove_tasks(todoist_tasks: models.TodoistTaskCollection):
         )
         if remove_task_response.status_code == http.HTTPStatus.NO_CONTENT:
             removed[todoist_task.permalink] = todoist_task
-            logger.info(f"Removed Todoist Task {todoist_task.permalink}.")
+            logger.info(f"Removed Todoist Task {todoist_task.description}.")
 
     return models.TodoistTaskCollection(*removed.values())

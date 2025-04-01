@@ -145,6 +145,29 @@ class TodoistTaskCollection(Collection):
 
         return cls(*tasks)
 
+    @classmethod
+    def from_harmonogram(
+        cls, collection_days: Collection, todoist_project_id: int
+    ) -> TodoistTaskCollection:
+        tasks = []
+
+        for collection_day in collection_days:
+            day_before = collection_day.date.subtract(days=1)
+
+            todoist_task = TodoistTask(
+                id=PendingValue(),
+                content=collection_day.description,
+                description=collection_day.permalink,
+                project_id=todoist_project_id,
+                due_string=day_before.isoformat(),
+                due_lang="en",
+                labels=["Harmonogram"],
+                priority=TodoistTaskPriorityMapping.P1.value,
+            )
+            tasks.append(todoist_task)
+
+        return cls(*tasks)
+
     #  @TODO: This should be an adapter, outside of the per-service model
     @classmethod
     def from_calendar_events(
@@ -234,6 +257,46 @@ class TodoistTaskCollection(Collection):
             if (todoist_task not in to_add) and (todoist_task not in to_update):
                 to_close += todoist_task
                 logger.info(f"Need to remove task {todoist_task.content}.")
+
+        return TaskComparisonResult(
+            to_add=to_add, to_update=to_update, to_close=to_close
+        )
+
+    @classmethod
+    def compare_harmonogram(
+        cls,
+        harmonogram_tasks: TodoistTaskCollection,
+        todoist_tasks: TodoistTaskCollection,
+    ) -> TaskComparisonResult:
+        to_add = TodoistTaskCollection()
+        to_update = TodoistTaskCollection()
+        to_close = TodoistTaskCollection()
+
+        for harmonogram_task in harmonogram_tasks:
+            if harmonogram_task not in todoist_tasks:
+                to_add += harmonogram_task
+                logger.info(
+                    f"Need to add task {harmonogram_task.content} on {harmonogram_task.due_string}."
+                )
+
+            else:
+                todoist_task = todoist_tasks.get(
+                    description=harmonogram_task.description
+                )
+                todoist_task.content = harmonogram_task.content
+                todoist_task.description = harmonogram_task.description
+                todoist_task.priority = TodoistTaskPriorityMapping.P1.value
+                to_update += todoist_task
+                logger.info(
+                    f"Need to update task {harmonogram_task.content} on {harmonogram_task.due_string}."
+                )
+
+        for todoist_task in todoist_tasks:
+            if (todoist_task not in to_add) and (todoist_task not in to_update):
+                to_close += todoist_task
+                logger.info(
+                    f"Need to remove task {todoist_task.content} on {todoist_task.due.date}."
+                )
 
         return TaskComparisonResult(
             to_add=to_add, to_update=to_update, to_close=to_close
