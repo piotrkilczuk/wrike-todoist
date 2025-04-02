@@ -11,6 +11,7 @@ requests = "2.32.3"
 PyYAML = "^6.0"
 google-api-python-client = "^2.166.0"
 pendulum = "^3.0.0"
+click = "^8.1.8"
 
 [tool.poetry.dev-dependencies]
 

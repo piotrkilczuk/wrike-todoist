@@ -1,5 +1,6 @@
 import logging
 
+import click
 import pendulum
 
 from wrike_todoist import config
@@ -13,6 +14,9 @@ logger = logging.getLogger(__name__)
 
 def google_calendar_todoist_main():
     calendar_events = google_calendar_api.pull_todays_events()
+    calendar_events = calendar_events.filter(
+        lambda event: event.eventType == "default" and event.kind == "calendar#event"
+    )
 
     todoist_project = todoist_api.todoist_get_project_by_name(
         "Calendar"  # @TODO: Parametrize
@@ -100,8 +104,23 @@ def wrike_todoist_main():
     todoist_api.todoist_close_tasks(comparison_result.to_close)
 
 
-def main():
+@click.command()
+@click.option(
+    "--harmonogram/--no-harmonogram", default=True, help="Run harmonogram_main"
+)
+@click.option(
+    "--google-calendar/--no-google-calendar",
+    default=True,
+    help="Run google_calendar_todoist_main",
+)
+@click.option(
+    "--wrike-todoist/--no-wrike-todoist", default=True, help="Run wrike_todoist_main"
+)
+def main(harmonogram, google_calendar, wrike_todoist):
     logging.basicConfig(level=logging.INFO)
-    harmonogram_main()
-    google_calendar_todoist_main()
-    wrike_todoist_main()
+    if harmonogram:
+        harmonogram_main()
+    if google_calendar:
+        google_calendar_todoist_main()
+    if wrike_todoist:
+        wrike_todoist_main()
