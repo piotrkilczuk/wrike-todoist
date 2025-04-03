@@ -113,7 +113,7 @@ class TodoistTaskCollection(Collection):
     primary_key_field_name = "description"
     type = TodoistTask
 
-    RE_PRIORITY = r"\b(P[1-4])\b"
+    RE_PRIORITY = r"\b([Pp][1-4])\b"
 
     @classmethod
     def from_response(cls, response: List[Dict]) -> TodoistTaskCollection:
@@ -178,7 +178,9 @@ class TodoistTaskCollection(Collection):
         for calendar_event in calendar_events:
             match = re.search(cls.RE_PRIORITY, calendar_event.summary)
             priority_name = (
-                match.group(1) if match else config.config.todoist_default_priority
+                match.group(1).upper()
+                if match
+                else config.config.todoist_default_priority
             )
             priority_value = TodoistTaskPriorityMapping[priority_name].value
             summary = calendar_event.summary.replace(priority_name, "").strip()
