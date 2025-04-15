@@ -12,7 +12,7 @@ def pull_future_collection_days() -> Collection:
         data={
             "number": "188/E/1",
             "schedulegroup": "j",
-            "streetId": "20305587",
+            "streetId": "20447715",
         },
     )
     schedules_list = response_to_json_value(schedules_response, "utf-8-sig")
