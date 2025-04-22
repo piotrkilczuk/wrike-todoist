@@ -6,13 +6,33 @@ from wrike_todoist.harmonogram import models
 from wrike_todoist.models import Collection
 
 
-def pull_future_collection_days() -> Collection:
+HOUSE_NUMBER = "188/E/1"
+
+
+def find_street_id(street_name: str) -> int:
+    payload = {
+        "groupId": 1,
+        "number": HOUSE_NUMBER,
+        "schedulePeriodId": 7781,
+        "schedulegroup": "j",
+        "streetName": street_name,
+        "townId": 1119,
+    }
+    streets_response = requests.post(
+        "https://pluginssl.ecoharmonogram.pl/api/v1/plugin/v1/streets",
+        data=payload,
+    )
+    streets = response_to_json_value(streets_response, "utf-8-sig")
+    return int(streets["streets"][0]["id"])
+
+
+def pull_future_collection_days(street_id: int) -> Collection:
     schedules_response = requests.post(
         "https://pluginssl.ecoharmonogram.pl/api/v1/plugin/v1/schedules",
         data={
-            "number": "188/E/1",
+            "number": HOUSE_NUMBER,
             "schedulegroup": "j",
-            "streetId": "20447715",
+            "streetId": street_id,
         },
     )
     schedules_list = response_to_json_value(schedules_response, "utf-8-sig")

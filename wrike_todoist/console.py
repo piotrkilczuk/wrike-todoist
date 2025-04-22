@@ -47,7 +47,10 @@ def google_calendar_todoist_main():
 
 
 def harmonogram_main():
-    collection_days = harmonogram_api.pull_future_collection_days()
+    street_id = harmonogram_api.find_street_id("Potockiego")
+    logger.info(f"Found street id {street_id}")
+
+    collection_days = harmonogram_api.pull_future_collection_days(street_id)
 
     todoist_project = todoist_api.todoist_get_project_by_name(
         "Śmieci"  # @TODO: Parametrize
