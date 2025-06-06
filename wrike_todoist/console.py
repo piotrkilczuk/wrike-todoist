@@ -121,9 +121,9 @@ def wrike_todoist_main():
 )
 def main(harmonogram, google_calendar, wrike_todoist):
     logging.basicConfig(level=logging.INFO)
-    if harmonogram:
-        harmonogram_main()
     if google_calendar:
         google_calendar_todoist_main()
+    if harmonogram:
+        harmonogram_main()
     if wrike_todoist:
         wrike_todoist_main()

@@ -35,9 +35,14 @@ class TimeInfo:
     def from_response(cls, response: Union[Dict, None]):
         if response is None:
             return None
+
+        # Whole day events will not have the dateTime/timeZone fields, only a date field
+        datetime = pendulum.parse(response.get("dateTime", response.get("date")))
+        timezone = response.get("timeZone", "UTC")
+
         return cls(
-            dateTime=pendulum.parse(response["dateTime"]),
-            timeZone=response["timeZone"],
+            dateTime=datetime,
+            timeZone=timezone,
         )
 
 
