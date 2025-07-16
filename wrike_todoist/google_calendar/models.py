@@ -13,7 +13,7 @@ from wrike_todoist.models import Collection
 class Creator:
     displayName: str
     email: str
-    self: bool
+    self: bool = False
 
     @classmethod
     def from_response(cls, response: Union[Dict, None]):
