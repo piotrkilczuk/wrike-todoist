@@ -136,15 +136,21 @@ def todoist_update_tasks(
     updated = {}
 
     for todoist_task in todoist_tasks:
+        payload = todoist_task.serialize(
+            {"content", "description", "priority", "due_string"},
+            changed_only=True,
+        )
+        if not payload:
+            logger.info(f'No changes for Todoist Task {todoist_task.content}, skipping update.')
+            continue
+
         update_task_response = requests.post(
             f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}",
             headers={
                 "Authorization": f"Bearer {config.config.todoist_access_token}",
                 "X-Request-Id": uuid.uuid4().hex,
             },
-            json=todoist_task.serialize(
-                only={"content", "description", "priority", "due_string"}
-            ),
+            json=payload,
         )
         update_task_response.raise_for_status()  # @TODO: or maybe load the contents?
         logger.info(f"Updated Todoist Task {todoist_task.content}")

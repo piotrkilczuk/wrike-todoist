@@ -17,11 +17,34 @@ class PendingValue:
 
 
 class Item:
-    def serialize(self, only: Optional[Iterator[str]] = None) -> Dict:
+    def __post_init__(self):
+        """Initialize change tracking for items."""
+        # Store original values for change tracking
+        object.__setattr__(self, '_changed_fields', set())
+
+    def __setattr__(self, name, value):
+        """Track field changes when attributes are set."""
+        # Skip tracking for internal fields
+        if name.startswith('_'):
+            object.__setattr__(self, name, value)
+            return
+
+        # Track changes if the field exists and value is different
+        if hasattr(self, name):
+            current_value = getattr(self, name)
+            if current_value != value:
+                if hasattr(self, '_changed_fields'):
+                    self._changed_fields.add(name)
+
+        object.__setattr__(self, name, value)
+
+    def serialize(self, only: Optional[Iterator[str]] = None, changed_only: bool = False) -> Dict:
         data = {}
         for field in dataclasses.fields(self):
             name = field.name
             if only is not None and name not in only:
+                continue
+            if changed_only and hasattr(self, '_changed_fields') and name not in self._changed_fields:
                 continue
             value = getattr(self, name)
             if isinstance(value, enum.Enum):
