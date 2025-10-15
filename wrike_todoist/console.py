@@ -8,6 +8,7 @@ from wrike_todoist.google_calendar import api as google_calendar_api
 from wrike_todoist.wrike import api as wrike_api, models as wrike_models
 from wrike_todoist.todoist import api as todoist_api, models as todoist_models
 from wrike_todoist.harmonogram import api as harmonogram_api
+from wrike_todoist.github import api as github_api
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,14 @@ def wrike_todoist_main():
     todoist_api.todoist_close_tasks(comparison_result.to_close)
 
 
+def github_main():
+    github_items = github_api.github_get_all_items()
+    logger.info(f"Retrieved {len(github_items)} GitHub items (issues and PRs).")
+    for item in github_items:
+        item_type = "PR" if item.is_pull_request else "Issue"
+        logger.info(f"  [{item_type}] {item.repository_name}#{item.number}: {item.title}")
+
+
 @click.command()
 @click.option(
     "--harmonogram/--no-harmonogram", default=True, help="Run harmonogram_main"
@@ -117,9 +126,12 @@ def wrike_todoist_main():
     help="Run google_calendar_todoist_main",
 )
 @click.option(
-    "--wrike-todoist/--no-wrike-todoist", default=True, help="Run wrike_todoist_main"
+    "--wrike-todoist/--no-wrike-todoist", default=False, help="Run wrike_todoist_main"
 )
-def main(harmonogram, google_calendar, wrike_todoist):
+@click.option(
+    "--github/--no-github", default=False, help="Run github_main"
+)
+def main(harmonogram, google_calendar, wrike_todoist, github):
     logging.basicConfig(level=logging.INFO)
     if google_calendar:
         google_calendar_todoist_main()
@@ -127,3 +139,5 @@ def main(harmonogram, google_calendar, wrike_todoist):
         harmonogram_main()
     if wrike_todoist:
         wrike_todoist_main()
+    if github:
+        github_main()
