@@ -176,27 +176,18 @@ class TodoistTaskCollection(Collection):
         tasks = []
 
         for calendar_event in calendar_events:
-            match = re.search(cls.RE_PRIORITY, calendar_event.summary)
-            priority_name = (
-                match.group(1).upper()
-                if match
-                else config.config.todoist_default_priority
-            )
-            priority_value = TodoistTaskPriorityMapping[priority_name].value
-            summary = calendar_event.summary.replace(priority_name, "").strip()
             due_time = calendar_event.start.dateTime.time().isoformat(
                 timespec="minutes"
             )
             due_string = f"today {due_time}"
             todoist_task = TodoistTask(
                 id=PendingValue(),
-                content=summary,
+                content=calendar_event.summary,
                 description=calendar_event.htmlLink,
                 project_id=todoist_project_id,
                 due_string=due_string,
                 due_lang="en",
                 labels=["Calendar"],
-                priority=priority_value,
             )
             tasks.append(todoist_task)
 
@@ -270,7 +261,6 @@ class TodoistTaskCollection(Collection):
                 todoist_task = todoist_tasks.get(description=calendar_event.description)
                 todoist_task.content = calendar_event.content
                 todoist_task.description = calendar_event.description
-                todoist_task.priority = calendar_event.priority
                 todoist_task.due_string = calendar_event.due_string
                 to_update += todoist_task
                 logger.info(f"Need to update task {calendar_event.content}.")
@@ -323,8 +313,6 @@ class TodoistTaskCollection(Collection):
         return TaskComparisonResult(
             to_add=to_add, to_update=to_update, to_close=to_close
         )
-
-
 
     @classmethod
     def compare_github(
