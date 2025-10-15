@@ -203,6 +203,26 @@ class TodoistTaskCollection(Collection):
         return cls(*tasks)
 
     @classmethod
+    def from_github_items(
+        cls, github_items: Collection, todoist_project_id: int
+    ) -> TodoistTaskCollection:
+        tasks = []
+
+        for github_item in github_items:
+            item_type = "PR" if github_item.is_pull_request else "Issue"
+            content = f"[{item_type}] {github_item.repository_name}#{github_item.number}: {github_item.title}"
+            todoist_task = TodoistTask(
+                id=PendingValue(),
+                description=github_item.html_url,
+                content=content,
+                project_id=todoist_project_id,
+                labels=["GitHub"],
+            )
+            tasks.append(todoist_task)
+
+        return cls(*tasks)
+
+    @classmethod
     def compare_wrike(
         cls, wrike_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection
     ) -> TaskComparisonResult:
@@ -299,6 +319,37 @@ class TodoistTaskCollection(Collection):
                 logger.info(
                     f"Need to remove task {todoist_task.content} on {todoist_task.due.date}."
                 )
+
+        return TaskComparisonResult(
+            to_add=to_add, to_update=to_update, to_close=to_close
+        )
+
+
+
+    @classmethod
+    def compare_github(
+        cls, github_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection
+    ) -> TaskComparisonResult:
+        to_add = TodoistTaskCollection()
+        to_update = TodoistTaskCollection()
+        to_close = TodoistTaskCollection()
+
+        for github_task in github_tasks:
+            if github_task not in todoist_tasks:
+                to_add += github_task
+                logger.info(f"Need to add task {github_task.content}.")
+
+            else:
+                todoist_task = todoist_tasks.get(description=github_task.description)
+                todoist_task.content = github_task.content
+                todoist_task.description = github_task.description
+                to_update += todoist_task
+                logger.info(f"Need to update task {github_task.content}.")
+
+        for todoist_task in todoist_tasks:
+            if (todoist_task not in to_add) and (todoist_task not in to_update):
+                to_close += todoist_task
+                logger.info(f"Need to close task {todoist_task.content}.")
 
         return TaskComparisonResult(
             to_add=to_add, to_update=to_update, to_close=to_close
