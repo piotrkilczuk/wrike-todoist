@@ -6,7 +6,7 @@ authors = ["Piotr Kilczuk <piotr@kilczuk.dev>"]
 license = "MIT"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 requests = "2.32.3"
 PyYAML = "^6.0"
 google-api-python-client = "^2.166.0"
