@@ -15,6 +15,7 @@ class Config(NamedTuple):
     todoist_default_priority: str
     wrike_access_token: str
     wrike_folders: List[str]
+    github_classic_token: str
 
 
 Undefined = object()
@@ -76,6 +77,9 @@ def read_config() -> Config:
         ),
         wrike_folders=read_from_any(
             "wrike_folders", os.environ, read_from_yaml, expected=list
+        ),
+        github_classic_token=read_from_any(
+            "github_classic_token", os.environ, read_from_yaml
         ),
     )
 
