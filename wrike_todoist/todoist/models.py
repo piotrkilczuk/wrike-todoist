@@ -180,6 +180,13 @@ class TodoistTaskCollection(Collection):
                 timespec="minutes"
             )
             due_string = f"today {due_time}"
+
+            priority = TodoistTaskPriorityMapping[config.config.todoist_default_priority]
+            priority_match = re.search(cls.RE_PRIORITY, calendar_event.summary)
+            if priority_match:
+                priority_str = priority_match.group(1).upper()
+                priority = TodoistTaskPriorityMapping[priority_str].value
+
             todoist_task = TodoistTask(
                 id=PendingValue(),
                 content=calendar_event.summary,
@@ -188,6 +195,7 @@ class TodoistTaskCollection(Collection):
                 due_string=due_string,
                 due_lang="en",
                 labels=["Calendar"],
+                priority=priority,
             )
             tasks.append(todoist_task)
 
