@@ -73,8 +73,9 @@ class TodoistTask(Item):
     due_string: Optional[str] = None
     due_lang: Optional[str] = None
 
-    # This only used during read
+    # These are only used during read
     due: Optional[Due] = None
+    is_completed: bool = False
 
     RE_PERMALINK = re.compile(r"https?://[^\s<>\"]+")
 
@@ -95,6 +96,7 @@ class TodoistTask(Item):
             project_id=response["project_id"],
             labels=response["labels"],
             due=due,
+            is_completed=response.get("is_completed", False),
         )
 
     def update_from_response(self, response: Dict):
@@ -107,6 +109,7 @@ class TaskComparisonResult(NamedTuple):
     to_add: TodoistTaskCollection
     to_update: TodoistTaskCollection
     to_close: TodoistTaskCollection
+    to_reopen: TodoistTaskCollection
 
 
 class TodoistTaskCollection(Collection):
@@ -247,7 +250,7 @@ class TodoistTaskCollection(Collection):
                 logger.info(f"Need to complete task {todoist_task.content}.")
 
         return TaskComparisonResult(
-            to_add=to_add, to_update=to_update, to_close=to_close
+            to_add=to_add, to_update=to_update, to_close=to_close, to_reopen=TodoistTaskCollection()
         )
 
     @classmethod
@@ -279,7 +282,7 @@ class TodoistTaskCollection(Collection):
                 logger.info(f"Need to remove task {todoist_task.content}.")
 
         return TaskComparisonResult(
-            to_add=to_add, to_update=to_update, to_close=to_close
+            to_add=to_add, to_update=to_update, to_close=to_close, to_reopen=TodoistTaskCollection()
         )
 
     @classmethod
@@ -319,7 +322,7 @@ class TodoistTaskCollection(Collection):
                 )
 
         return TaskComparisonResult(
-            to_add=to_add, to_update=to_update, to_close=to_close
+            to_add=to_add, to_update=to_update, to_close=to_close, to_reopen=TodoistTaskCollection()
         )
 
     @classmethod
@@ -329,6 +332,7 @@ class TodoistTaskCollection(Collection):
         to_add = TodoistTaskCollection()
         to_update = TodoistTaskCollection()
         to_close = TodoistTaskCollection()
+        to_reopen = TodoistTaskCollection()
 
         for github_task in github_tasks:
             if github_task not in todoist_tasks:
@@ -337,6 +341,12 @@ class TodoistTaskCollection(Collection):
 
             else:
                 todoist_task = todoist_tasks.get(description=github_task.description)
+
+                # If the task is completed but still in GitHub, it needs to be reopened
+                if todoist_task.is_completed:
+                    to_reopen += todoist_task
+                    logger.info(f"Need to reopen task {github_task.content}.")
+
                 todoist_task.content = github_task.content
                 todoist_task.description = github_task.description
                 to_update += todoist_task
@@ -348,7 +358,7 @@ class TodoistTaskCollection(Collection):
                 logger.info(f"Need to close task {todoist_task.content}.")
 
         return TaskComparisonResult(
-            to_add=to_add, to_update=to_update, to_close=to_close
+            to_add=to_add, to_update=to_update, to_close=to_close, to_reopen=to_reopen
         )
 
 

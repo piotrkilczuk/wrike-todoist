@@ -114,7 +114,15 @@ def github_todoist_main():
     todoist_project = todoist_api.todoist_get_project_by_name(
         "GitHub"  # @TODO: Parametrize
     )
-    actual_todoist_tasks = todoist_api.todoist_get_tasks(todoist_project)
+    actual_todoist_tasks_active = todoist_api.todoist_get_tasks(todoist_project)
+    actual_todoist_tasks_completed_last_day = (
+        todoist_api.todoist_get_completed_tasks(
+            todoist_project, since=pendulum.today().subtract(days=1)
+        )
+    )
+    actual_todoist_tasks = (
+        actual_todoist_tasks_active + actual_todoist_tasks_completed_last_day
+    ).distinct()
 
     expected_todoist_tasks = todoist_models.TodoistTaskCollection.from_github_items(
         github_items, todoist_project.id
@@ -124,6 +132,7 @@ def github_todoist_main():
         expected_todoist_tasks, actual_todoist_tasks
     )
 
+    todoist_api.todoist_reopen_tasks(comparison_result.to_reopen)
     todoist_api.todoist_create_tasks(comparison_result.to_add)
     todoist_api.todoist_update_tasks(comparison_result.to_update)
     todoist_api.todoist_close_tasks(comparison_result.to_close)

@@ -193,3 +193,21 @@ def todoist_remove_tasks(todoist_tasks: models.TodoistTaskCollection):
             logger.info(f"Removed Todoist Task {todoist_task.description}.")
 
     return models.TodoistTaskCollection(*removed.values())
+
+
+def todoist_reopen_tasks(todoist_tasks: models.TodoistTaskCollection):
+    reopened = {}
+
+    for todoist_task in todoist_tasks:
+        reopen_task_response = requests.post(
+            f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}/reopen",
+            headers={
+                "Authorization": f"Bearer {config.config.todoist_access_token}",
+                "X-Request-Id": uuid.uuid4().hex,
+            },
+        )
+        if reopen_task_response.status_code == http.HTTPStatus.NO_CONTENT:
+            reopened[todoist_task.permalink] = todoist_task
+            logger.info(f"Reopened Todoist Task {todoist_task.description}.")
+
+    return models.TodoistTaskCollection(*reopened.values())
