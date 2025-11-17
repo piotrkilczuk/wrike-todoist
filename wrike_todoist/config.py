@@ -1,5 +1,5 @@
 import os
-from typing import NamedTuple, List, TypeVar, Type
+from typing import NamedTuple, TypeVar, Type
 
 import yaml
 
