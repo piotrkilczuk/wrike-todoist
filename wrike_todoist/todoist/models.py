@@ -122,32 +122,6 @@ class TodoistTaskCollection(Collection):
     def from_response(cls, response: List[Dict]) -> TodoistTaskCollection:
         return cls(*[cls.type.from_response(item) for item in response])
 
-    # @TODO: This should be an adapter, outside of the per-service model
-    @classmethod
-    def from_wrike_tasks(
-        cls, wrike_tasks: Collection, todoist_project_id: int
-    ) -> TodoistTaskCollection:
-        tasks = []
-
-        for wrike_task in wrike_tasks:
-            if wrike_task.sub_task_ids:
-                logger.info(
-                    f"Skipping Wrike Task {wrike_task.numeric_id} as has sub-tasks."
-                )
-                continue
-
-            content = f"[#{wrike_task.numeric_id}] {wrike_task.title}"
-            todoist_task = TodoistTask(
-                id=PendingValue(),
-                description=wrike_task.permalink,
-                content=content,
-                project_id=todoist_project_id,
-                labels=["Wrike"],
-            )
-            tasks.append(todoist_task)
-
-        return cls(*tasks)
-
     @classmethod
     def from_harmonogram(
         cls, collection_days: Collection, todoist_project_id: int
@@ -223,35 +197,6 @@ class TodoistTaskCollection(Collection):
             tasks.append(todoist_task)
 
         return cls(*tasks)
-
-    @classmethod
-    def compare_wrike(
-        cls, wrike_tasks: TodoistTaskCollection, todoist_tasks: TodoistTaskCollection
-    ) -> TaskComparisonResult:
-        to_add = TodoistTaskCollection()
-        to_update = TodoistTaskCollection()
-        to_close = TodoistTaskCollection()
-
-        for wrike_task in wrike_tasks:
-            if wrike_task not in todoist_tasks:
-                to_add += wrike_task
-                logger.info(f"Need to add task {wrike_task.content}.")
-
-            else:
-                todoist_task = todoist_tasks.get(description=wrike_task.description)
-                todoist_task.content = wrike_task.content
-                todoist_task.description = wrike_task.description
-                to_update += todoist_task
-                logger.info(f"Need to update task {wrike_task.content}.")
-
-        for todoist_task in todoist_tasks:
-            if (todoist_task not in to_add) and (todoist_task not in to_update):
-                to_close += todoist_task
-                logger.info(f"Need to complete task {todoist_task.content}.")
-
-        return TaskComparisonResult(
-            to_add=to_add, to_update=to_update, to_close=to_close, to_reopen=TodoistTaskCollection()
-        )
 
     @classmethod
     def compare_calendar(

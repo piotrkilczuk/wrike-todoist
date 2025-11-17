@@ -1,5 +1,6 @@
 import datetime
 import http
+import logging
 import uuid
 
 import requests
@@ -7,7 +8,8 @@ import requests
 from wrike_todoist import models, config
 from wrike_todoist.api_utils import response_to_json_value
 from wrike_todoist.todoist import models
-from wrike_todoist.wrike.api import logger
+
+logger = logging.getLogger(__name__)
 
 
 def todoist_get_project_by_name(name: str) -> models.TodoistProject:

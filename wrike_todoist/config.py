@@ -13,8 +13,6 @@ class Config(NamedTuple):
     todoist_project_name: str
     todoist_label: str
     todoist_default_priority: str
-    wrike_access_token: str
-    wrike_folders: List[str]
     github_classic_token: str
 
 
@@ -71,12 +69,6 @@ def read_config() -> Config:
         todoist_label=read_from_any("todoist_label", os.environ, read_from_yaml),
         todoist_default_priority=read_from_any(
             "todoist_default_priority", os.environ, read_from_yaml, default="P4"
-        ),
-        wrike_access_token=read_from_any(
-            "wrike_access_token", os.environ, read_from_yaml
-        ),
-        wrike_folders=read_from_any(
-            "wrike_folders", os.environ, read_from_yaml, expected=list
         ),
         github_classic_token=read_from_any(
             "github_classic_token", os.environ, read_from_yaml
