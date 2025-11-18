@@ -158,7 +158,9 @@ class TodoistTaskCollection(Collection):
             )
             due_string = f"today {due_time}"
 
-            priority = TodoistTaskPriorityMapping[config.config.todoist_default_priority]
+            priority = TodoistTaskPriorityMapping[
+                config.config.todoist_default_priority
+            ]
             priority_match = re.search(cls.RE_PRIORITY, calendar_event.summary)
             if priority_match:
                 priority_str = priority_match.group(1).upper()
@@ -193,6 +195,7 @@ class TodoistTaskCollection(Collection):
                 content=content,
                 project_id=todoist_project_id,
                 labels=["GitHub"],
+                due_string="today",
             )
             tasks.append(todoist_task)
 
@@ -227,7 +230,10 @@ class TodoistTaskCollection(Collection):
                 logger.info(f"Need to remove task {todoist_task.content}.")
 
         return TaskComparisonResult(
-            to_add=to_add, to_update=to_update, to_close=to_close, to_reopen=TodoistTaskCollection()
+            to_add=to_add,
+            to_update=to_update,
+            to_close=to_close,
+            to_reopen=TodoistTaskCollection(),
         )
 
     @classmethod
@@ -267,7 +273,10 @@ class TodoistTaskCollection(Collection):
                 )
 
         return TaskComparisonResult(
-            to_add=to_add, to_update=to_update, to_close=to_close, to_reopen=TodoistTaskCollection()
+            to_add=to_add,
+            to_update=to_update,
+            to_close=to_close,
+            to_reopen=TodoistTaskCollection(),
         )
 
     @classmethod
