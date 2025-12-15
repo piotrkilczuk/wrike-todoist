@@ -17,6 +17,7 @@ class GitHubIssue(Item):
     labels: List[str]
     repository_name: str
     is_pull_request: bool
+    draft: bool
 
     @property
     def permalink(self) -> str:
@@ -29,6 +30,11 @@ class GitHubIssue(Item):
         repository_url = response["repository_url"]
         repository_name = "/".join(repository_url.split("/")[-2:])
 
+        # Draft status is in pull_request.draft for issues endpoint,
+        # or directly in draft for search endpoint
+        pull_request_info = response.get("pull_request", {})
+        draft = response.get("draft", pull_request_info.get("draft", False))
+
         return cls(
             id=response["id"],
             number=response["number"],
@@ -39,6 +45,7 @@ class GitHubIssue(Item):
             labels=[label["name"] for label in response.get("labels", [])],
             repository_name=repository_name,
             is_pull_request="pull_request" in response,
+            draft=draft,
         )
 
 

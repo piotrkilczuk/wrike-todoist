@@ -28,11 +28,11 @@ def github_get_assigned_issues() -> models.GitHubIssueCollection:
 
 
 def github_get_review_requests() -> models.GitHubIssueCollection:
-    """Get all open PRs where the authenticated user has been requested for review."""
+    """Get all open non-draft PRs where the authenticated user has been requested for review."""
     github_review_requests_response = requests.get(
         "https://api.github.com/search/issues",
         params={
-            "q": "is:open is:pr review-requested:@me",
+            "q": "is:open is:pr draft:false review-requested:@me",
             "per_page": 100,
         },
         headers={"Authorization": f"Bearer {config.config.github_classic_token}"},
@@ -46,11 +46,11 @@ def github_get_review_requests() -> models.GitHubIssueCollection:
 
 
 def github_get_created_prs() -> models.GitHubIssueCollection:
-    """Get all open PRs created by the authenticated user."""
+    """Get all open non-draft PRs created by the authenticated user."""
     github_created_prs_response = requests.get(
         "https://api.github.com/search/issues",
         params={
-            "q": "is:open is:pr author:@me",
+            "q": "is:open is:pr draft:false author:@me",
             "per_page": 100,
         },
         headers={"Authorization": f"Bearer {config.config.github_classic_token}"},
