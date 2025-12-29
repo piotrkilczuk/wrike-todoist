@@ -187,7 +187,10 @@ class TodoistTaskCollection(Collection):
         tasks = []
 
         for github_item in github_items:
-            item_type = "PR" if github_item.is_pull_request else "Issue"
+            if github_item.is_pull_request:
+                item_type = "My PR" if github_item.created_by_me else "Review PR"
+            else:
+                item_type = "Issue"
             content = f"[{item_type}] {github_item.repository_name}#{github_item.number}: {github_item.title}"
             todoist_task = TodoistTask(
                 id=PendingValue(),

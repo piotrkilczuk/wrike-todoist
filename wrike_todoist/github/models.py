@@ -7,6 +7,23 @@ from wrike_todoist.models import Item, Collection
 
 
 @dataclasses.dataclass
+class GitHubUser:
+    id: int
+    login: str
+    name: Optional[str]
+    html_url: str
+
+    @classmethod
+    def from_response(cls, response: Dict) -> GitHubUser:
+        return cls(
+            id=response["id"],
+            login=response["login"],
+            name=response.get("name"),
+            html_url=response["html_url"],
+        )
+
+
+@dataclasses.dataclass
 class GitHubIssue(Item):
     id: int
     number: int
@@ -18,13 +35,14 @@ class GitHubIssue(Item):
     repository_name: str
     is_pull_request: bool
     draft: bool
+    created_by_me: bool = False
 
     @property
     def permalink(self) -> str:
         return self.html_url
 
     @classmethod
-    def from_response(cls, response: Dict) -> GitHubIssue:
+    def from_response(cls, response: Dict, current_user: GitHubUser) -> GitHubIssue:
         # Extract repository name from repository_url
         # Format: https://api.github.com/repos/owner/repo
         repository_url = response["repository_url"]
@@ -34,6 +52,10 @@ class GitHubIssue(Item):
         # or directly in draft for search endpoint
         pull_request_info = response.get("pull_request", {})
         draft = response.get("draft", pull_request_info.get("draft", False))
+
+        # Determine if the current user created this item
+        author_login = response.get("user", {}).get("login")
+        created_by_me = author_login == current_user.login
 
         return cls(
             id=response["id"],
@@ -46,6 +68,7 @@ class GitHubIssue(Item):
             repository_name=repository_name,
             is_pull_request="pull_request" in response,
             draft=draft,
+            created_by_me=created_by_me,
         )
 
 
@@ -54,5 +77,5 @@ class GitHubIssueCollection(Collection):
     primary_key_field_name = "html_url"
 
     @classmethod
-    def from_response(cls, response: List[Dict]) -> GitHubIssueCollection:
-        return cls(*[cls.type.from_response(item) for item in response])
+    def from_response(cls, response: List[Dict], current_user: GitHubUser) -> GitHubIssueCollection:
+        return cls(*[cls.type.from_response(item, current_user) for item in response])

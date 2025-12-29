@@ -79,7 +79,8 @@ def harmonogram_main():
 
 
 def github_todoist_main():
-    github_items = github_api.github_get_all_items()
+    current_user = github_api.github_get_authenticated_user()
+    github_items = github_api.github_get_all_items(current_user)
 
     todoist_project = todoist_api.todoist_get_project_by_name(
         "GitHub"  # @TODO: Parametrize
