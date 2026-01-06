@@ -13,7 +13,7 @@ def find_street_id(street_name: str) -> int:
     payload = {
         "groupId": 1,
         "number": HOUSE_NUMBER,
-        "schedulePeriodId": 7781,
+        "schedulePeriodId": 10171,
         "schedulegroup": "j",
         "streetName": street_name,
         "townId": 1119,
@@ -23,7 +23,14 @@ def find_street_id(street_name: str) -> int:
         data=payload,
     )
     streets = response_to_json_value(streets_response, "utf-8-sig")
-    return int(streets["streets"][0]["id"])
+
+    for street in streets["streets"]:
+        if street["numbers"] == HOUSE_NUMBER:
+            return int(street["id"])
+
+    raise ValueError(
+        f"No street found with house number {HOUSE_NUMBER} in {len(streets['streets'])} results"
+    )
 
 
 def pull_future_collection_days(street_id: int) -> Collection:
