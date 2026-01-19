@@ -12,6 +12,7 @@ PyYAML = "^6.0"
 google-api-python-client = "^2.166.0"
 pendulum = "^3.0.0"
 click = "^8.1.8"
+sentry-sdk = "^2.49.0"
 
 [tool.poetry.dev-dependencies]
 
