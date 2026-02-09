@@ -7,22 +7,29 @@ from wrike_todoist.models import Collection
 
 
 HOUSE_NUMBER = "188/E/1"
+SCHEDULE_PERIOD_ID = 10351
+BASE_URL = "https://api.ecoharmonogram.pl/v1/plugin/v1"
 
 
 def find_street_id(street_name: str) -> int:
     payload = {
         "groupId": 1,
         "number": HOUSE_NUMBER,
-        "schedulePeriodId": 10171,
+        "schedulePeriodId": SCHEDULE_PERIOD_ID,
         "schedulegroup": "j",
         "streetName": street_name,
         "townId": 1119,
     }
     streets_response = requests.post(
-        "https://pluginssl.ecoharmonogram.pl/api/v1/plugin/v1/streets",
+        f"{BASE_URL}/streets",
         data=payload,
     )
     streets = response_to_json_value(streets_response, "utf-8-sig")
+
+    if streets is None:
+        raise ValueError(
+            f"API returned null for street '{street_name}' — schedulePeriodId may be stale"
+        )
 
     for street in streets["streets"]:
         if street["numbers"] == HOUSE_NUMBER:
@@ -35,7 +42,7 @@ def find_street_id(street_name: str) -> int:
 
 def pull_future_collection_days(street_id: int) -> Collection:
     schedules_response = requests.post(
-        "https://pluginssl.ecoharmonogram.pl/api/v1/plugin/v1/schedules",
+        f"{BASE_URL}/schedules",
         data={
             "number": HOUSE_NUMBER,
             "schedulegroup": "j",
