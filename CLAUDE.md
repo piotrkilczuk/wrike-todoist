@@ -10,8 +10,9 @@ Deployed as AWS Lambda functions.
 
 ## Style
 
-- Black formatter, line-length 120
+- Black formatter, line-length 120.
 - Always use single-line commit messages, no co-authors, no emojis, no prefixes.
+- Do not use `_private_function` convention, just `private_function`.
 
 ## Tools
 

@@ -25,7 +25,7 @@ def google_calendar_todoist_main():
         todoist_project, only_due_today=True
     )
     actual_todoist_tasks_only_due_today = actual_todoist_tasks.filter(
-        lambda task: task.due and task.due.date == pendulum.today()
+        lambda task: task.due and task.due.date.date() == pendulum.today().date()
     )
     actual_todoist_tasks_completed_today = todoist_api.todoist_get_completed_tasks(
         todoist_project, since=pendulum.today()

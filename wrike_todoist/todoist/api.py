@@ -2,6 +2,7 @@ import datetime
 import http
 import logging
 import uuid
+from typing import Dict, Iterator, Optional
 
 import requests
 
@@ -11,14 +12,30 @@ from wrike_todoist.todoist import models
 
 logger = logging.getLogger(__name__)
 
+TODOIST_API_BASE = "https://api.todoist.com/api/v1"
+
+
+def todoist_paginate(url: str, params: Optional[Dict] = None) -> Iterator[Dict]:
+    cursor = None
+    while True:
+        page_params = dict(params or {})
+        if cursor:
+            page_params["cursor"] = cursor
+        response = requests.get(
+            url,
+            params=page_params,
+            headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
+        )
+        data = response_to_json_value(response)
+        yield from data["results"]
+        cursor = data.get("next_cursor")
+        if not cursor:
+            break
+
 
 def todoist_get_project_by_name(name: str) -> models.TodoistProject:
-    todoist_projects_response = requests.get(
-        "https://api.todoist.com/rest/v2/projects",
-        headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
-    )
     todoist_projects = models.TodoistProjectCollection.from_response(
-        response_to_json_value(todoist_projects_response)
+        todoist_paginate(f"{TODOIST_API_BASE}/projects")
     )
     logger.info(f"Retrieved {len(todoist_projects)} Todoist Projects.")
     todoist_project = todoist_projects.get(name=name)
@@ -27,13 +44,8 @@ def todoist_get_project_by_name(name: str) -> models.TodoistProject:
 
 
 def todoist_get_or_create_label(name: str) -> models.TodoistLabel:
-    todoist_labels_response = requests.get(
-        "https://api.todoist.com/rest/v2/labels",
-        headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
-    )
-
     todoist_labels = models.TodoistLabelCollection.from_response(
-        response_to_json_value(todoist_labels_response)
+        todoist_paginate(f"{TODOIST_API_BASE}/labels")
     )
     logger.info(f"Retrieved {len(todoist_labels)} Todoist Labels.")
 
@@ -47,7 +59,7 @@ def todoist_get_or_create_label(name: str) -> models.TodoistLabel:
         todoist_label = models.TodoistLabel(id=models.PendingValue(), name=name)
 
         todoist_label_response = requests.post(
-            "https://api.todoist.com/rest/v2/labels",
+            f"{TODOIST_API_BASE}/labels",
             headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
             json=todoist_label.serialize(),
         )
@@ -61,36 +73,26 @@ def todoist_get_or_create_label(name: str) -> models.TodoistLabel:
 def todoist_get_tasks(
     todoist_project: models.TodoistProject, only_due_today: bool = False
 ) -> models.TodoistTaskCollection:
-    todoist_tasks_response = requests.get(
-        "https://api.todoist.com/rest/v2/tasks/",
-        params={"project_id": todoist_project.id},
-        headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
-    )
-    response_as_list_of_dict = response_to_json_value(todoist_tasks_response)
     todoist_task_collection = models.TodoistTaskCollection.from_response(
-        response_as_list_of_dict
+        todoist_paginate(f"{TODOIST_API_BASE}/tasks", params={"project_id": todoist_project.id})
     )
     logger.info(f"Retrieved {len(todoist_task_collection)} Todoist Tasks.")
     return todoist_task_collection
 
 
-def todoist_get_completed_task(task_id: int) -> models.TodoistTask:
+def todoist_get_completed_task(task_id: str) -> models.TodoistTask:
     todoist_task_response = requests.get(
-        "https://api.todoist.com/sync/v9/items/get",
-        params={
-            "item_id": task_id,
-        },
+        f"{TODOIST_API_BASE}/tasks/{task_id}",
         headers={"Authorization": f"Bearer {config.config.todoist_access_token}"},
     )
-    task_data = response_to_json_value(todoist_task_response)
-    return models.TodoistTask.from_response(task_data["item"])
+    return models.TodoistTask.from_response(response_to_json_value(todoist_task_response))
 
 
 def todoist_get_completed_tasks(
     todoist_project: models.TodoistProject, since: datetime.datetime
 ) -> models.TodoistTaskCollection:
     todoist_tasks_response = requests.get(
-        "https://api.todoist.com/sync/v9/completed/get_all",
+        f"{TODOIST_API_BASE}/tasks/completed",
         params={
             "project_id": todoist_project.id,
             "since": since.isoformat(),
@@ -115,7 +117,7 @@ def todoist_create_tasks(
 
     for todoist_task in todoist_tasks:
         create_task_response = requests.post(
-            "https://api.todoist.com/rest/v2/tasks/",
+            f"{TODOIST_API_BASE}/tasks",
             headers={
                 "Authorization": f"Bearer {config.config.todoist_access_token}",
                 "X-Request-Id": uuid.uuid4().hex,
@@ -147,7 +149,7 @@ def todoist_update_tasks(
             continue
 
         update_task_response = requests.post(
-            f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}",
+            f"{TODOIST_API_BASE}/tasks/{todoist_task.id}",
             headers={
                 "Authorization": f"Bearer {config.config.todoist_access_token}",
                 "X-Request-Id": uuid.uuid4().hex,
@@ -166,7 +168,7 @@ def todoist_close_tasks(todist_tasks: models.TodoistTaskCollection):
 
     for todoist_task in todist_tasks:
         close_task_response = requests.post(
-            f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}/close",
+            f"{TODOIST_API_BASE}/tasks/{todoist_task.id}/close",
             headers={
                 "Authorization": f"Bearer {config.config.todoist_access_token}",
                 "X-Request-Id": uuid.uuid4().hex,
@@ -184,7 +186,7 @@ def todoist_remove_tasks(todoist_tasks: models.TodoistTaskCollection):
 
     for todoist_task in todoist_tasks:
         remove_task_response = requests.delete(
-            f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}",
+            f"{TODOIST_API_BASE}/tasks/{todoist_task.id}",
             headers={
                 "Authorization": f"Bearer {config.config.todoist_access_token}",
                 "X-Request-Id": uuid.uuid4().hex,
@@ -202,7 +204,7 @@ def todoist_reopen_tasks(todoist_tasks: models.TodoistTaskCollection):
 
     for todoist_task in todoist_tasks:
         reopen_task_response = requests.post(
-            f"https://api.todoist.com/rest/v2/tasks/{todoist_task.id}/reopen",
+            f"{TODOIST_API_BASE}/tasks/{todoist_task.id}/reopen",
             headers={
                 "Authorization": f"Bearer {config.config.todoist_access_token}",
                 "X-Request-Id": uuid.uuid4().hex,

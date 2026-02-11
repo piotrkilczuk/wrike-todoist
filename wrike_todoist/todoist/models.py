@@ -3,7 +3,7 @@ from __future__ import annotations
 import dataclasses
 import enum
 import re
-from typing import Dict, List, Union, NamedTuple, Optional
+from typing import Dict, Iterable, List, Union, NamedTuple, Optional
 
 import pendulum
 
@@ -13,7 +13,7 @@ from wrike_todoist.models import Item, Collection, PendingValue, logger
 
 @dataclasses.dataclass
 class TodoistProject(Item):
-    id: int
+    id: str
     name: str
 
     @classmethod
@@ -25,7 +25,7 @@ class TodoistProjectCollection(Collection):
     type = TodoistProject
 
     @classmethod
-    def from_response(cls, response: List[Dict]) -> TodoistProjectCollection:
+    def from_response(cls, response: Iterable[Dict]) -> TodoistProjectCollection:
         return cls(*[cls.type.from_response(item) for item in response])
 
 
@@ -52,7 +52,7 @@ class Due:
         datetime = pendulum.parse(raw_datetime) if raw_datetime else None
         timezone = response.get("timezone", "UTC")
         return cls(
-            date=pendulum.parse(response["date"]),
+            date=pendulum.parse(response["date"]).start_of("day"),
             is_recurring=response["is_recurring"],
             datetime=datetime,
             string=response["string"],
@@ -62,10 +62,10 @@ class Due:
 
 @dataclasses.dataclass
 class TodoistTask(Item):
-    id: Union[int, PendingValue]
+    id: Union[str, PendingValue]
     content: str
     description: str
-    project_id: int
+    project_id: str
     labels: List[str]
     priority: int = TodoistTaskPriorityMapping[config.config.todoist_default_priority]
 
@@ -96,7 +96,7 @@ class TodoistTask(Item):
             project_id=response["project_id"],
             labels=response["labels"],
             due=due,
-            is_completed=response.get("is_completed", False),
+            is_completed=response.get("checked", False),
         )
 
     def update_from_response(self, response: Dict):
@@ -119,12 +119,12 @@ class TodoistTaskCollection(Collection):
     RE_PRIORITY = r"\b([Pp][1-4])\b"
 
     @classmethod
-    def from_response(cls, response: List[Dict]) -> TodoistTaskCollection:
+    def from_response(cls, response: Iterable[Dict]) -> TodoistTaskCollection:
         return cls(*[cls.type.from_response(item) for item in response])
 
     @classmethod
     def from_harmonogram(
-        cls, collection_days: Collection, todoist_project_id: int
+        cls, collection_days: Collection, todoist_project_id: str
     ) -> TodoistTaskCollection:
         tasks = []
 
@@ -148,7 +148,7 @@ class TodoistTaskCollection(Collection):
     #  @TODO: This should be an adapter, outside of the per-service model
     @classmethod
     def from_calendar_events(
-        cls, calendar_events: Collection, todoist_project_id: int
+        cls, calendar_events: Collection, todoist_project_id: str
     ) -> TodoistTaskCollection:
         tasks = []
 
@@ -182,7 +182,7 @@ class TodoistTaskCollection(Collection):
 
     @classmethod
     def from_github_items(
-        cls, github_items: Collection, todoist_project_id: int
+        cls, github_items: Collection, todoist_project_id: str
     ) -> TodoistTaskCollection:
         tasks = []
 
@@ -321,7 +321,7 @@ class TodoistTaskCollection(Collection):
 
 @dataclasses.dataclass
 class TodoistLabel(Item):
-    id: Union[int, PendingValue]
+    id: Union[str, PendingValue]
     name: str
 
     @classmethod
@@ -334,5 +334,5 @@ class TodoistLabelCollection(Collection):
     type = TodoistLabel
 
     @classmethod
-    def from_response(cls, response: List[Dict]) -> TodoistLabelCollection:
+    def from_response(cls, response: Iterable[Dict]) -> TodoistLabelCollection:
         return cls(*[cls.type.from_response(item) for item in response])
