@@ -78,6 +78,7 @@ class TodoistTask(Item):
     is_completed: bool = False
 
     RE_PERMALINK = re.compile(r"https?://[^\s<>\"]+")
+    RE_MARKDOWN_LINK = re.compile(r"\[.*?\]\((https?://[^\s)]+)\)")
 
     @property
     def permalink(self) -> str:
@@ -87,12 +88,21 @@ class TodoistTask(Item):
         return match.group(0)
 
     @classmethod
+    def normalize_description(cls, description: str) -> str:
+        md_match = cls.RE_MARKDOWN_LINK.search(description)
+        if md_match:
+            return md_match.group(1)
+        return description
+
+    @classmethod
     def from_response(cls, response: Dict) -> TodoistTask:
         due = Due.from_response(response["due"])
         return cls(
             id=response["id"],
             content=response["content"],
-            description=response["description"],
+            # Todoist v1 API auto-converts public URLs to markdown links [title](url).
+            # Normalize back to raw URL so description-based deduplication works.
+            description=cls.normalize_description(response["description"]),
             project_id=response["project_id"],
             labels=response["labels"],
             due=due,
