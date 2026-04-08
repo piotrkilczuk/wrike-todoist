@@ -36,6 +36,7 @@ class GitHubIssue(Item):
     is_pull_request: bool
     draft: bool
     created_by_me: bool = False
+    is_dependabot_alert: bool = False
 
     @property
     def permalink(self) -> str:
@@ -69,6 +70,23 @@ class GitHubIssue(Item):
             is_pull_request="pull_request" in response,
             draft=draft,
             created_by_me=created_by_me,
+        )
+
+
+    @classmethod
+    def from_dependabot_alert(cls, alert: Dict, repository_name: str) -> GitHubIssue:
+        return cls(
+            id=alert["number"],
+            number=alert["number"],
+            title=alert["security_advisory"]["summary"],
+            html_url=alert["html_url"],
+            state=alert["state"],
+            body=alert["security_advisory"].get("description"),
+            labels=[alert["security_vulnerability"]["severity"]],
+            repository_name=repository_name,
+            is_pull_request=False,
+            draft=False,
+            is_dependabot_alert=True,
         )
 
 

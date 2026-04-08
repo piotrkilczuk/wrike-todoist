@@ -72,12 +72,37 @@ def github_get_created_prs(current_user: models.GitHubUser) -> models.GitHubIssu
     return github_created_pr_collection
 
 
+DEPENDABOT_REPOS = ["bidnamic/shift"]
+
+
+def github_get_dependabot_alerts(current_user: models.GitHubUser) -> models.GitHubIssueCollection:
+    """Get open Dependabot alerts assigned to the authenticated user."""
+    issues = []
+    for repo in DEPENDABOT_REPOS:
+        response = requests.get(
+            f"https://api.github.com/repos/{repo}/dependabot/alerts",
+            params={
+                "state": "open",
+                "per_page": 100,
+            },
+            headers={"Authorization": f"Bearer {config.config.github_classic_token}"},
+        )
+        alerts = response_to_json_value(response)
+        for alert in alerts:
+            assignee_logins = [a["login"] for a in alert.get("assignees", [])]
+            if current_user.login in assignee_logins:
+                issues.append(models.GitHubIssue.from_dependabot_alert(alert, repo))
+    logger.info(f"Retrieved {len(issues)} Dependabot alerts assigned to user.")
+    return models.GitHubIssueCollection(*issues)
+
+
 def github_get_all_items(current_user: models.GitHubUser) -> models.GitHubIssueCollection:
     """Get all GitHub items: assigned issues/PRs, review requests, and created PRs."""
     assigned = github_get_assigned_issues(current_user)
     review_requests = github_get_review_requests(current_user)
     created_prs = github_get_created_prs(current_user)
+    dependabot_alerts = github_get_dependabot_alerts(current_user)
 
     # Combine and deduplicate using the distinct() method from Collection
-    combined = assigned + review_requests + created_prs
+    combined = assigned + review_requests + created_prs + dependabot_alerts
     return combined.distinct()
