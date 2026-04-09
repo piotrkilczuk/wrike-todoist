@@ -7,7 +7,7 @@ from wrike_todoist.models import Collection
 
 
 HOUSE_NUMBER = "188/E/1"
-SCHEDULE_PERIOD_ID = 10351
+SCHEDULE_PERIOD_ID = 2
 BASE_URL = "https://api.ecoharmonogram.pl/v1/plugin/v1"
 
 
