@@ -25,6 +25,6 @@ Deployed as AWS Lambda functions.
 
 ### ecoharmonogram API
 
-The ecoharmonogram.pl API changes `schedulePeriodId` periodically. 
-When it goes stale, the API returns JSON `null` with HTTP 200. 
-If you see this, find the new period ID via the `townsForCommunity` endpoint (communityId=60).
+The ecoharmonogram.pl API changes `schedulePeriodId` periodically.
+When it goes stale, the `/streets` endpoint returns JSON `null` with HTTP 200.
+To find the current ID, POST to `/streetsForTown` with `townId=1119` and read the `perId` field of the matching street. The `townsForCommunity` endpoint is unreliable — it sometimes reports a stale ID even when `/streets` rejects it.
